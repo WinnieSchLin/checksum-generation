@@ -17,10 +17,14 @@ Winnie Schwaid-Lindner - v.01 of file renaming and inventory script.
 
 '''
 
-import os
-import subprocess
-import datetime
-import time
+import os, subprocess, datetime, time, sys, imghdr
+from pydub import AudioSegment
+
+#'G:\Snakes\Test_Documents\Contained_Test'
+#'G:\Snakes\Test_Documents\Contained_Test\This_is_a_folder'
+
+
+
 
 file_dir = ''
 while '\\' not in file_dir:
@@ -37,14 +41,17 @@ file_type_string = input('List file types that you would like to process separat
 file_types = file_type_string.split() # separate file types from one string into a list           
  
 for root, dirs, files in os.walk(file_dir): # for each folder and file within that directory
-    inventory_acc = 'sep=`\nProcessingTimeStamp`FilePath`RootDirectory`OrigFileName`ChecksumFileName`Checksum`NewFile?`ChecksumMatchesPast?\n' # reset for every dir
+    inventory_acc = 'sep=`\nProcessingTimeStamp`FilePath`RootDirectory`OrigFileName`ChecksumFileName`Checksum`NewFile?`ChecksumMatchesPast?`FileCorrupt?\n' # reset for every dir
     for name in files:
         if name.endswith(tuple(file_types)) or file_type_string == '': # select file types to process
             new_file = '' # reset for every file
             checksum_consistent = '' # reset for every file
             name_without_checksum = '' # reset for every file
             file_name_with_checksum = '' # reset for every file
-            if 'SHA1' not in name and 'MD5' not in name and 'SHA256' not in name: # make sure that the file name does not already have a checksum generated
+            file_corrupt = ''
+      
+    
+            if 'SHA1' not in name and 'MD5' not in name and 'SHA256' not in name and (name.startswith('__') == False): # make sure that the file name does not already have a checksum generated
                 new_file = 'YES'
                 old_name_with_path = (os.path.join(root, name)) # the complete file name including the path
                 file_list = name.split('.') # split the portions of the file name to separate the extension
@@ -70,9 +77,31 @@ for root, dirs, files in os.walk(file_dir): # for each folder and file within th
                 checksum = checksum_split[1] # take only the second line, which is the checksum
                 if checksum not in name:
                     checksum_consistent = 'CHECKSUM DOES NOT MATCH FILE NAME'
-                    
+
+            if name.endswith("mp3") or name.endswith("wav") or name.endswith("dsd"):
+                file_corrupt = ''
+                try:
+                    sound = AudioSegment.from_file(name_with_path)
+                    loudness = sound.dBFS
+                except:
+                    exc = sys.exc_info()[:-1]
+                    file_corrupt = 'ERROR'
+                    print(file_corrupt, name_with_path, exc)
+         #problems start here       
+            if name.endswith("jpg") or name.endswith("tiff") or name.endswith("pdf"):
+                e = ''
+                try:
+                    img = imghdr.what(name_with_path)
+                    if img == None:
+                        file_corrupt = 'ERROR'
+                    print(file_corrupt, name_with_path, 'img == None')
+                except:
+                    exc = sys.exc_info()
+                    file_corrupt = 'ERROR'
+                    print(file_corrupt, name_with_path, exc)
+
             time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
-            inventory_acc += ('"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"\n' % (time_stamp, name_with_path, root, name_without_checksum, file_name_with_checksum, checksum, new_file, checksum_consistent)) # an accumulator that adds all inventory information for the .csv
+            inventory_acc += ('"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"\n' % (time_stamp, name_with_path, root, name_without_checksum, file_name_with_checksum, checksum, new_file, checksum_consistent, file_corrupt)) # an accumulator that adds all inventory information for the .csv
     time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
     local_folder = str(root.split('\\')[-1]) # identifying most local directory
     inventory_name = (str(root) + '\\__' + local_folder + '__Inventory_' + str(time_stamp) + '.csv') # the file name for the generated inventory. This will start with two underscores for easy sorting within the directory and also contain the directory's name in its own file name in case the inventory becomes disassociated.
@@ -80,7 +109,5 @@ for root, dirs, files in os.walk(file_dir): # for each folder and file within th
         outfile.writelines(inventory_acc) # fills in accumulator
     outfile.close() # all done!
     print(root, 'inventory completed')
-
-
 
 
