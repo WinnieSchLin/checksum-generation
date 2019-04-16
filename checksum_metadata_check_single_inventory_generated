@@ -32,8 +32,8 @@ or if the file is new (I'm also going to check for duplicate checksums,
     * Whether the file is valid according to type
     * In future - tell whether the file is valid according to
       mediainfo metadata matching with expected metadata
-
 '''
+
 import glob, os, subprocess, datetime, time, sys, imghdr, csv, os.path
 
 # G:\Snakes\Test_Documents\Contained_Test
