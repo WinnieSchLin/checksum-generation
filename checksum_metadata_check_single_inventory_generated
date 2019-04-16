@@ -1,0 +1,209 @@
+'''
+Winnie Schwaid-Lindner - v.02 of file renaming and inventory script.
+
+
+1. Generate a single recursive and levelled index of all files and dirs, 
+   providing clear tallies and knowledge of exactly what exists and where
+2. Ask the root directory, inventory directory, hash algorithm, 
+   and which file types to process (on an inclusionary or exclusionary basis)
+3. Calculate the checksum using certUtil
+4. Look into past inventories and see whether the checksum matches 
+or if the file is new (I'm also going to check for duplicate checksums,
+   but I haven't gotten around to making that happen yet)
+5. Check to see if image files are valid type using imghdr
+   in order to see whether image is corrupt
+6. (Not yet completed) Check mediainfo metadata against image file standards
+   and LSU's preferred file specs, to determine if file has unexpected
+   or incorrect properties while still being valid
+7. Produce a csv inventory of all the file names for each directory
+   with the fields:
+    * Time stamp of file processed
+    * Full file path
+    * Directory that the file is in
+    * File name
+    * (File name without checksum if files have been renamed)
+    * Checksum
+    * Checksum algorithm
+    * Whether the file is being processed by the script for the first time,
+      which would indicate a new file (Boolean value)
+    * Whether the most recently generated checksum matches the most recent
+      past checksum if the file is not new
+      (compares checksum to past inventory, this is also Boolean)
+    * Whether the file is valid according to type
+    * In future - tell whether the file is valid according to
+      mediainfo metadata matching with expected metadata
+
+'''
+import glob, os, subprocess, datetime, time, sys, imghdr, csv, os.path
+
+# G:\Snakes\Test_Documents\Contained_Test
+# G:\Snakes\Test_Documents\Inventories
+
+file_dir = ''
+while '\\' not in file_dir:
+    # the directory you want to work with
+    file_dir = input('CONTENT FILE DIRECTORY:\n\
+    Paste the *FULL* path to the folder directory \n\
+    that you would like to process:\n> ')
+
+inventory_dir = ''
+while '\\' not in inventory_dir:
+    # the directory you want to work with
+    inventory_dir = input('INVENTORY DIRECTORY:\n\
+    Paste the *FULL* path to the folder directory \n\
+    that you would like to save the inventory in:\n> ')
+
+today = datetime.date.today()
+checksum_options = ['SHA1', 'MD5', 'SHA256']
+checksum_type = (input('CHECKSUM SELECTION:\n\
+    Select your checksum type!\n\
+    Options are "MD5", "SHA1", or "SHA256". Default is set to "MD5".\n> '))\
+    .upper()
+if checksum_type not in checksum_options:
+    # if you didn't select a valid checksum, it'll go MD5.
+    print('Your choice is not on the list. Defaulting to MD5 checksums.')
+    checksum_type = 'MD5'
+
+file_type_string = input('FILE TYPE SELECTION:\n\
+    List file types that you would like to process separated by a space\n\
+    (ex "pdf jpg xml docx")\n\
+    NOTE: If you do not input a file type, every file in the folder\n\
+    will be processed.\n> ')
+# separate file types from one string into a list 
+file_types = file_type_string.split()          
+latest_inventory = ''
+read_inventory = []
+first_inventory_of_dir = False
+
+# do not reset
+inventory_acc = 'sep=`\nProcessingTimeStamp`FilePath`RootDirectory`FileName\
+`Checksum`ChecksumType`NewFile?`ChecksumMatchesPast?`FileCorrupt?\n'
+
+# making path for file name
+modified_path = (file_dir.replace('\\', "'").replace(":", "'"))
+# see if previous inventory exists by accessing it, if it doesn't,
+#   don't throw error
+try:
+    latest_inventory = str(max(glob.iglob(inventory_dir + \
+                        '\\__Inventory_' + modified_path + '__*.csv')\
+                        ,key=os.path.getmtime))
+except (OSError, ValueError): 
+    stop_this = ''
+# if it exists, open it, turn it into a list
+if latest_inventory != '':
+    old_inventory = open(latest_inventory)
+    read_inventory = list(csv.reader(old_inventory, delimiter='`'))
+    # indicate it's not the first inventory
+    first_inventory_of_dir = False
+else:
+    # this is the first inventory done for this dir
+    first_inventory_of_dir = True
+
+# for each folder and file within that directory
+for root, dirs, files in os.walk(file_dir):
+    for folder in dirs:
+        dir_name = folder
+        print('currently processing', dir_name)
+        
+    for name in files:
+        # select file types to process
+        if name.endswith(tuple(file_types)) or file_type_string == '': 
+            # reset file-specific variables for every file
+            new_file = ''
+            checksum_consistent = ''
+            name_without_checksum = ''
+            file_error = ''
+            name_with_path = (os.path.join(root, name))
+            # split the portions of the file name to separate the extension
+            file_list = name.split('.')
+            file_ext = file_list[-1]
+            file_name_parts = [file_list[0:-1], file_ext]
+            name_without_checksum = '.'.join(map(str, file_name_parts))
+            file_name_with_checksum = name
+            run_checksum = subprocess.check_output(('certUtil -hashfile "' \
+                                                    + name_with_path + '" ' \
+                                                    + checksum_type), \
+                                                   shell=True)
+            # split the returned string by line
+            checksum_split = run_checksum.decode().split('\r\n')
+            # take only the second line, which is the checksum
+            checksum = checksum_split[1]
+            time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
+            new_file = 'Yes'
+
+            if inventory_acc.count('`"%s"`' % (checksum)) > 0:
+                # if they don't match, there's an error
+                checksum_consistent += 'ERROR, DUPLICATE CHECKSUM.'
+                # print error in shell
+                print('---WARNING, CHECKSUM APPEARS MORE THAN ONCE:\n\
+%s\n' % (row[1]))
+
+            # if not the first inventory
+            if first_inventory_of_dir == False:
+                # read row by row
+                for row in read_inventory:
+                    # if the file name is in the row
+                    if name in row[1]:
+                        # it's not a new file
+                        new_file = ' '
+                        # if the checksums match
+                        if checksum in str(row[4]):
+                            # they are consistent
+                            checksum_consistent += ' ' 
+                        else:
+                            # if they don't match, there's an error
+                            checksum_consistent += 'ERROR, \
+INCONSISTENT CHECKSUM.'
+                            # print error in shell
+                            print('---WARNING, \
+CHECKSUM DOES NOT MATCH:\n  %s\n' % (row[1]))
+                    # if there's a file in the inventory that's not
+                    #   in the directory, show error
+                    if (os.path.isfile(row[1]) == False \
+                        or os.access(row[1], os.R_OK) == False) \
+                        and (row[1] != 'FilePath') and (row[1] != ''):
+                        if (('`"%s"`"FILE IS MISSING OR CAN NOT BE ACCESSED"\n' \
+                             % (row[1])) in inventory_acc) == False:
+                            inventory_acc += ('"%s"`"%s"`"FILE IS MISSING \
+OR CAN NOT BE ACCESSED"\n' % (time_stamp, (row[1])))
+                            print('---WARNING, \
+FILE IS MISSING OR CAN NOT BE ACCESSED:\n  %s\n' \
+                                  % (row[1]))
+            else:
+                new_file = 'FIRST INVENTORY OF DIR'
+                checksum_consistent += ' '
+
+            if name.endswith("jpg") or name.endswith("tif") \
+               or name.endswith("tiff"):
+                e = ''
+                try:
+                    img = imghdr.what(name_with_path)
+                    if img == None:
+                        file_error = 'ERROR'
+                except:
+                    exc = sys.exc_info()
+                    file_error = 'ERROR'
+            else:
+                file_error = ' '
+                
+        # an accumulator that adds all inventory information for the .csv    
+        inventory_acc += ('"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"\n' \
+                          % (time_stamp, name_with_path, root, name, \
+                             checksum, checksum_type, new_file, \
+                             checksum_consistent, file_error)) 
+time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
+# the file name for the generated inventory.
+#   This will start with two underscores for easy sorting within the directory
+#   and also contain the directory's name in its own file name
+#   in case the inventory becomes disassociated.
+inventory_name = (inventory_dir + '\\__Inventory_' + modified_path + \
+                  '___' + str(time_stamp) + '.csv')
+old_inventory.close()
+# creates new file for inventory
+with open(inventory_name, 'w+') as outfile:
+    # fills in accumulator
+    outfile.writelines(inventory_acc)
+# all done!
+outfile.close()
+# print that this inventory has been completed
+print('%s inventory completed,\nsaved as %s\n' % (root, inventory_name))
