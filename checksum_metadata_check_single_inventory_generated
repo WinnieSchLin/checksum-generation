@@ -1,27 +1,21 @@
 '''
-Winnie Schwaid-Lindner - v.02 of file renaming and inventory script.
+Winnie Schwaid-Lindner - v.03 of file renaming and inventory script.
 
 
-1. Generate a single recursive and levelled index of all files and dirs, 
-   providing clear tallies and knowledge of exactly what exists and where
-2. Ask the root directory, inventory directory, hash algorithm, 
-   and which file types to process (on an inclusionary or exclusionary basis)
-3. Calculate the checksum using certUtil
-4. Look into past inventories and see whether the checksum matches 
-or if the file is new (I'm also going to check for duplicate checksums,
-   but I haven't gotten around to making that happen yet)
-5. Check to see if image files are valid type using imghdr
-   in order to see whether image is corrupt
-6. (Not yet completed) Check mediainfo metadata against image file standards
-   and LSU's preferred file specs, to determine if file has unexpected
-   or incorrect properties while still being valid
-7. Produce a csv inventory of all the file names for each directory
+1. Ask the root directory, inventory directory, hash algorithm, 
+   and which file extensions to process on an inclusionary or exclusionary basis
+2. Calculate the checksum using certUtil
+3. Look into past inventories and see whether the checksum matches, 
+   identify duplicate checksums, or whether the file is new to the directory
+4. Check mediainfo metadata against image and audio file standards
+   (and, in the future LSU's preferred file specs), to determine if file
+   has unexpected or incorrect properties while still being valid
+5. Produce a csv inventory of all the file names for each directory
    with the fields:
     * Time stamp of file processed
     * Full file path
     * Directory that the file is in
     * File name
-    * (File name without checksum if files have been renamed)
     * Checksum
     * Checksum algorithm
     * Whether the file is being processed by the script for the first time,
@@ -29,15 +23,15 @@ or if the file is new (I'm also going to check for duplicate checksums,
     * Whether the most recently generated checksum matches the most recent
       past checksum if the file is not new
       (compares checksum to past inventory, this is also Boolean)
-    * Whether the file is valid according to type
-    * In future - tell whether the file is valid according to
+    * Tell whether the file is valid according to
       mediainfo metadata matching with expected metadata
-
 '''
+
 import glob, os, subprocess, datetime, time, sys, csv
 
-# G:\Snakes\Test_Documents\Contained_Test
-# G:\Snakes\Test_Documents\Inventories
+# these are the directories I've been running it on locally, here for easy ref
+#   G:\Snakes\Test_Documents\Contained_Test
+#   G:\Snakes\Test_Documents\Inventories
 
 file_dir = ''
 cant_process_zero_files_silly = ''
@@ -126,7 +120,6 @@ for root, dirs, files in os.walk(file_dir):
     for folder in dirs:
         dir_name = folder
         print('CURRENTLY PROCESSING:\n%s\\%s\n' % (root, dir_name))
-        
     for name in files:
         name_with_path = (os.path.join(root, name))
         # select file types to process
@@ -155,7 +148,7 @@ for root, dirs, files in os.walk(file_dir):
             time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
             new_file = 'Yes'
 
-            if inventory_acc.count('`"%s"`' % (checksum)) > 0:
+            if inventory_acc.count('"%s"' % (checksum)) > 0:
                 # if they don't match, there's an error
                 checksum_consistent += 'Duplicate checksum.'
                 # print error in shell
@@ -195,8 +188,8 @@ FILE IS MISSING OR CAN NOT BE ACCESSED:\n   %s\n' \
             else:
                 new_file = 'First inventory of this directory'
                 checksum_consistent += ' '
-            # if it's an image file, run mediainfo checks to determine whether
-            #   the image file is valid
+
+            # look at mediainfo technical metadata of image files
             if name.lower().endswith("jpg") or name.lower().endswith("tif") \
             or name.lower().endswith("tiff"):
                 file_extension = (subprocess.check_output(('MediaInfo \
@@ -240,6 +233,51 @@ IMAGE FILE EXTENSION NOT EXPECTED:\n   %s\n' % (name_with_path))
                     file_error.append('Compression is not lossless.')
                     print('---WARNING, \
 IMAGE FILE IS NOT LOSSLESS:\n   %s\n' % (name_with_path))
+
+
+            #look at mediainfo technical metadata of wav files
+            if name.lower().endswith("wav"):
+                file_extension = (subprocess.check_output(('MediaInfo \
+                --Output=General;%FileExtension% "' + name_with_path +'"'), \
+                                                         shell=True))
+                internet_media_type = (subprocess.check_output('MediaInfo \
+                --Output=General;%InternetMediaType% "' + name_with_path +'"', \
+                                                              shell=True))                                                             
+                extensions_usually_used = (subprocess.check_output('MediaInfo \
+                --Output=General;%Format/Extensions% "' + name_with_path +'"', \
+                                                                  shell=True))                                                                 
+                sampling_rate = (subprocess.check_output('MediaInfo \
+                --Output=Audio;%SamplingRate% "' + name_with_path +'"', \
+                                                           shell=True))                                                          
+                internet_media_type_formatted = (str(internet_media_type)\
+                                                 .split('/'))[0].strip("\\b'")
+                file_extension_formatted = (str(file_extension)).replace("b'", "")\
+                   .replace("\\r\\n'", "")
+                extensions_usually_used_formatted = \
+                                                  (str(extensions_usually_used))\
+                            .replace("b'", "")\
+                           .replace("\\r\\n'", "")
+                sampling_rate_formatted = (str(sampling_rate))\
+                                             .lower().strip().replace("b'", "")\
+                                             .replace("\\r\\n'", "")
+                if internet_media_type_formatted != \
+                   'audio':
+                    file_error_count += 1
+                    file_error.append("File should be a audio but isn't.")
+                    print('---WARNING, \
+AUDIO FILE IS NOT AUDIO:\n   %s\n' % (name_with_path))
+                if file_extension_formatted\
+                   not in extensions_usually_used_formatted:
+                    file_error_count += 1
+                    file_error.append('File extension not expected value.')
+                    print('---WARNING, \
+AUDIO FILE EXTENSION NOT EXPECTED:\n   %s\n' % (name_with_path))
+                if sampling_rate_formatted\
+                   != '44100':
+                    file_error_count += 1
+                    file_error.append('Sampling rate is incorrect.')
+                    print('---WARNING, \
+AUDIO SAMPLING RATE INCORRECT:\n   %s\n' % (name_with_path))
             if file_error != []:
                 error_grouping = ("%s Error(s): %s" % \
                                   (file_error_count, \
@@ -251,6 +289,8 @@ IMAGE FILE IS NOT LOSSLESS:\n   %s\n' % (name_with_path))
                               % (time_stamp, name_with_path, root, name, \
                                  checksum, checksum_type, new_file, \
                                  checksum_consistent, error_grouping))
+
+
         else:
             time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
             inventory_acc += ('"%s"`"%s"`"%s"`"%s"`"File extension not selected \
@@ -271,3 +311,4 @@ with open(inventory_name, 'w+') as outfile:
 outfile.close()
 # print that this inventory has been completed
 print('COMPLETED:\nInventory saved as\n%s' % (inventory_name))
+
