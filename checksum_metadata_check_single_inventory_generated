@@ -32,14 +32,15 @@ or if the file is new (I'm also going to check for duplicate checksums,
     * Whether the file is valid according to type
     * In future - tell whether the file is valid according to
       mediainfo metadata matching with expected metadata
-'''
 
-import glob, os, subprocess, datetime, time, sys, imghdr, csv, os.path
+'''
+import glob, os, subprocess, datetime, time, sys, csv
 
 # G:\Snakes\Test_Documents\Contained_Test
 # G:\Snakes\Test_Documents\Inventories
 
 file_dir = ''
+cant_process_zero_files_silly = ''
 while '\\' not in file_dir:
     # the directory you want to work with
     file_dir = input('CONTENT FILE DIRECTORY:\n\
@@ -49,28 +50,49 @@ while '\\' not in file_dir:
 inventory_dir = ''
 while '\\' not in inventory_dir:
     # the directory you want to work with
-    inventory_dir = input('INVENTORY DIRECTORY:\n\
+    inventory_dir = input('\nINVENTORY DIRECTORY:\n\
     Paste the *FULL* path to the folder directory \n\
     that you would like to save the inventory in:\n> ')
 
 today = datetime.date.today()
 checksum_options = ['SHA1', 'MD5', 'SHA256']
-checksum_type = (input('CHECKSUM SELECTION:\n\
+checksum_type = (input('\nCHECKSUM SELECTION:\n\
     Select your checksum type!\n\
-    Options are "MD5", "SHA1", or "SHA256". Default is set to "MD5".\n> '))\
-    .upper()
+    Options are [MD5], [SHA1], or [SHA256].\n\
+    NOTE: If you do not select a valid option, default is set to [MD5].\n> '))\
+    .upper().replace('[', '').replace(']', '')
 if checksum_type not in checksum_options:
     # if you didn't select a valid checksum, it'll go MD5.
-    print('Your choice is not on the list. Defaulting to MD5 checksums.')
+    print('Not a valid choice. Defaulting to MD5 checksums.')
     checksum_type = 'MD5'
+while cant_process_zero_files_silly == '':
+    # file type on exclusionary or inclusionary basis
+    include_true_exclude_false = True
+    file_type_include_exclude = input('\nFILE TYPE INCLUDE / EXCLUDE:\n\
+    Would you like to [I]NCLUDE certain file types\n\
+    or [E]XCLUDE certain file types?\n\
+    NOTE: If you do not select to include or exclude,\n\
+    default is set to INCLUDE all files.\n> ')\
+    .upper().replace('[', '').replace(']', '')
+    if file_type_include_exclude == "E":
+        include_true_exclude_false = False
+    elif file_type_include_exclude not in ("I", "E"):
+        print('Not a valid choice. Defaulting to INCLUDE.')
 
-file_type_string = input('FILE TYPE SELECTION:\n\
+    file_type_string = input('\nFILE TYPE SELECTION:\n\
     List file types that you would like to process separated by a space\n\
     (ex "pdf jpg xml docx")\n\
     NOTE: If you do not input a file type, every file in the folder\n\
     will be processed.\n> ')
-# separate file types from one string into a list 
-file_types = file_type_string.split()          
+    if (include_true_exclude_false == False) and (file_type_string == ''):
+        print("ERROR, you can't exclude all files... \
+Let's try that again...\n")
+    else:
+        cant_process_zero_files_silly = "aw yis"
+
+
+# separate file types from one string into a list
+file_types = file_type_string.split()
 latest_inventory = ''
 read_inventory = []
 first_inventory_of_dir = False
@@ -103,17 +125,19 @@ else:
 for root, dirs, files in os.walk(file_dir):
     for folder in dirs:
         dir_name = folder
-        print('currently processing', dir_name)
+        print('CURRENTLY PROCESSING:\n%s\\%s\n' % (root, dir_name))
         
     for name in files:
+        name_with_path = (os.path.join(root, name))
         # select file types to process
-        if name.endswith(tuple(file_types)) or file_type_string == '': 
+        if name.endswith(tuple(file_types)) == include_true_exclude_false \
+           or file_type_string == '':
             # reset file-specific variables for every file
             new_file = ''
             checksum_consistent = ''
             name_without_checksum = ''
-            file_error = ''
-            name_with_path = (os.path.join(root, name))
+            file_error = []
+            file_error_count = 0
             # split the portions of the file name to separate the extension
             file_list = name.split('.')
             file_ext = file_list[-1]
@@ -133,10 +157,10 @@ for root, dirs, files in os.walk(file_dir):
 
             if inventory_acc.count('`"%s"`' % (checksum)) > 0:
                 # if they don't match, there's an error
-                checksum_consistent += 'ERROR, DUPLICATE CHECKSUM.'
+                checksum_consistent += 'Duplicate checksum.'
                 # print error in shell
                 print('---WARNING, CHECKSUM APPEARS MORE THAN ONCE:\n\
-%s\n' % (row[1]))
+   %s\n' % (row[1]))
 
             # if not the first inventory
             if first_inventory_of_dir == False:
@@ -152,45 +176,85 @@ for root, dirs, files in os.walk(file_dir):
                             checksum_consistent += ' ' 
                         else:
                             # if they don't match, there's an error
-                            checksum_consistent += 'ERROR, \
-INCONSISTENT CHECKSUM.'
+                            checksum_consistent += 'Inconsistent checksum.'
                             # print error in shell
                             print('---WARNING, \
-CHECKSUM DOES NOT MATCH:\n  %s\n' % (row[1]))
+CHECKSUM DOES NOT MATCH:\n   %s\n' % (row[1]))
                     # if there's a file in the inventory that's not
                     #   in the directory, show error
                     if (os.path.isfile(row[1]) == False \
                         or os.access(row[1], os.R_OK) == False) \
                         and (row[1] != 'FilePath') and (row[1] != ''):
-                        if (('`"%s"`"FILE IS MISSING OR CAN NOT BE ACCESSED"\n' \
+                        if (('`"%s"`"File is missing or cannot be accessed"\n' \
                              % (row[1])) in inventory_acc) == False:
-                            inventory_acc += ('"%s"`"%s"`"FILE IS MISSING \
-OR CAN NOT BE ACCESSED"\n' % (time_stamp, (row[1])))
+                            inventory_acc += ('"%s"`"%s"`"File is missing \
+or cannot be accessed"\n' % (time_stamp, (row[1])))
                             print('---WARNING, \
-FILE IS MISSING OR CAN NOT BE ACCESSED:\n  %s\n' \
+FILE IS MISSING OR CAN NOT BE ACCESSED:\n   %s\n' \
                                   % (row[1]))
             else:
-                new_file = 'FIRST INVENTORY OF DIR'
+                new_file = 'First inventory of this directory'
                 checksum_consistent += ' '
-
-            if name.endswith("jpg") or name.endswith("tif") \
-               or name.endswith("tiff"):
-                e = ''
-                try:
-                    img = imghdr.what(name_with_path)
-                    if img == None:
-                        file_error = 'ERROR'
-                except:
-                    exc = sys.exc_info()
-                    file_error = 'ERROR'
+            # if it's an image file, run mediainfo checks to determine whether
+            #   the image file is valid
+            if name.lower().endswith("jpg") or name.lower().endswith("tif") \
+            or name.lower().endswith("tiff"):
+                file_extension = (subprocess.check_output(('MediaInfo \
+                --Output=General;%FileExtension% "' + name_with_path +'"'), \
+                                                         shell=True))
+                internet_media_type = (subprocess.check_output('MediaInfo \
+                --Output=General;%InternetMediaType% "' + name_with_path +'"', \
+                                                              shell=True))                                                             
+                extensions_usually_used = (subprocess.check_output('MediaInfo \
+                --Output=General;%Format/Extensions% "' + name_with_path +'"', \
+                                                                  shell=True))                                                                 
+                compression_mode = (subprocess.check_output('MediaInfo \
+                --Output=Image;%Compression_Mode% "' + name_with_path +'"', \
+                                                           shell=True))                                                          
+                internet_media_type_formatted = (str(internet_media_type)\
+                                                 .split('/'))[0].strip("\\b'")
+                file_extension_formatted = (str(file_extension)).replace("b'", "")\
+                   .replace("\\r\\n'", "")
+                extensions_usually_used_formatted = \
+                                                  (str(extensions_usually_used))\
+                            .replace("b'", "")\
+                           .replace("\\r\\n'", "")
+                compression_mode_formatted = (str(compression_mode))\
+                                             .lower().strip().replace("b'", "")\
+                                             .replace("\\r\\n'", "")
+                if internet_media_type_formatted != \
+                   'image':
+                    file_error_count += 1
+                    file_error.append("File should be an image but isn't.")
+                    print('---WARNING, \
+IMAGE FILE IS NOT IMAGE:\n   %s\n' % (name_with_path))
+                if file_extension_formatted\
+                   not in extensions_usually_used_formatted:
+                    file_error_count += 1
+                    file_error.append('File extension not expected value.')
+                    print('---WARNING, \
+IMAGE FILE EXTENSION NOT EXPECTED:\n   %s\n' % (name_with_path))
+                if compression_mode_formatted\
+                   != 'lossless':
+                    file_error_count += 1
+                    file_error.append('Compression is not lossless.')
+                    print('---WARNING, \
+IMAGE FILE IS NOT LOSSLESS:\n   %s\n' % (name_with_path))
+            if file_error != []:
+                error_grouping = ("%s Error(s): %s" % \
+                                  (file_error_count, \
+                                   (' '.join(file_error))))
             else:
-                file_error = ' '
-                
-        # an accumulator that adds all inventory information for the .csv    
-        inventory_acc += ('"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"\n' \
-                          % (time_stamp, name_with_path, root, name, \
-                             checksum, checksum_type, new_file, \
-                             checksum_consistent, file_error)) 
+                error_grouping = ''
+            # an accumulator that adds all inventory information for the .csv    
+            inventory_acc += ('"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"\n' \
+                              % (time_stamp, name_with_path, root, name, \
+                                 checksum, checksum_type, new_file, \
+                                 checksum_consistent, error_grouping))
+        else:
+            time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
+            inventory_acc += ('"%s"`"%s"`"%s"`"%s"`"File extension not selected \
+for processing"\n' % (time_stamp, name_with_path, root, name))
 time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
 # the file name for the generated inventory.
 #   This will start with two underscores for easy sorting within the directory
@@ -206,4 +270,4 @@ with open(inventory_name, 'w+') as outfile:
 # all done!
 outfile.close()
 # print that this inventory has been completed
-print('%s inventory completed,\nsaved as %s\n' % (root, inventory_name))
+print('COMPLETED:\nInventory saved as\n%s' % (inventory_name))
