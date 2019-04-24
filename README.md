@@ -20,7 +20,7 @@ In general, the script will:
 2. Calculate the checksum using certUtil
 3. Look into past inventories and see whether the checksum matches, 
    identify duplicate checksums, or whether the file is new to the directory
-3.5 Append checksum to file name, if desired
+    * Append checksum to file name, if desired
 4. Check mediainfo metadata against image and audio file standards
    (and, in the future LSU's preferred file specs), to determine if file
    has unexpected or incorrect properties while still being valid
