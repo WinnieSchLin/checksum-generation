@@ -30,16 +30,17 @@ Winnie Schwaid-Lindner - v.03 of file renaming and inventory script.
 import glob, os, subprocess, datetime, time, sys, csv
 
 # these are the directories I've been running it on locally, here for easy ref
-#   G:\Snakes\Test_Documents\Contained_Test
-#   G:\Snakes\Test_Documents\Inventories
-
-file_dir = ''
+#   S:\Departments\Digital Services\Internal\DigiPres\Checksum_Inventory_Generation\Contained_Test
+#   S:\Departments\Digital Services\Internal\DigiPres\Checksum_Inventory_Generation\Inventories
+line_break = ('{:^}'.format('-'*80))
+file_dir_input = ''
 cant_process_zero_files_silly = ''
-while '\\' not in file_dir:
+while '\\' not in file_dir_input:
     # the directory you want to work with
-    file_dir = input('CONTENT FILE DIRECTORY:\n\
+    file_dir_input = input('CONTENT FILE DIRECTORY:\n\
     Paste the *FULL* path to the folder directory \n\
     that you would like to process:\n> ')
+file_dir = '\\\\?\\%s' % file_dir_input
 
 inventory_dir = ''
 while '\\' not in inventory_dir:
@@ -96,7 +97,7 @@ inventory_acc = 'sep=`\nProcessingTimeStamp`FilePath`RootDirectory`FileName\
 `Checksum`ChecksumType`NewFile?`ChecksumMatchesPast?`FileCorrupt?\n'
 
 # making path for file name
-modified_path = (file_dir.replace('\\', "'").replace(":", "'"))
+modified_path = (file_dir.replace('\\\\?\\', "").replace('\\', "'").replace(":", "'"))
 # see if previous inventory exists by accessing it, if it doesn't,
 #   don't throw error
 try:
@@ -119,7 +120,8 @@ else:
 for root, dirs, files in os.walk(file_dir):
     for folder in dirs:
         dir_name = folder
-        print('CURRENTLY PROCESSING:\n%s\\%s\n' % (root, dir_name))
+        print('%s\nCURRENTLY PROCESSING:\n%s\\%s\n' % (line_break, root, dir_name))
+
     for name in files:
         name_with_path = (os.path.join(root, name))
         # select file types to process
@@ -153,7 +155,7 @@ for root, dirs, files in os.walk(file_dir):
                 checksum_consistent += 'Duplicate checksum.'
                 # print error in shell
                 print('---WARNING, CHECKSUM APPEARS MORE THAN ONCE:\n\
-   %s\n' % (row[1]))
+   %s\n' % (name_with_path))
 
             # if not the first inventory
             if first_inventory_of_dir == False:
@@ -310,5 +312,6 @@ with open(inventory_name, 'w+') as outfile:
 # all done!
 outfile.close()
 # print that this inventory has been completed
-print('COMPLETED:\nInventory saved as\n%s' % (inventory_name))
+print('%s\nCOMPLETED:\nInventory saved as\n%s' \
+      % (('{:^}'.format('='*80)),inventory_name))
 
