@@ -15,15 +15,29 @@ One of the main benefits to adding a checksum to the end of the file name is tha
  
 There are many programs to generate checksums, but I’ve written a script that will insert the checksums into the file name and generate an inventory on a directory-by-directory basis.
 In general, the script will:
-1. Ask the root directory, hash algorithm, and which file types to process before calculating an individual file's checksum according to the submitted parameters.
-2. Calculate the checksum
-3. Append the checksum to the file name
-4. Produce an inventory of all the file names in each directory with the fields:
- * Time stamp of file processed
- * Full file path
- * Directory that the file is in
- * Original file name
- * New file name which includes the checksum
- * Notes whether the file is being processed by the script for the first time (Boolean value)
- * Notes whether the most recently generated checksum matches a past generated checksum (compares checksum to file name, this is also Boolean)
+1. Ask the root directory, inventory directory, hash algorithm, 
+   and which file extensions to process on an inclusionary or exclusionary basis
+2. Calculate the checksum using certUtil
+3. Look into past inventories and see whether the checksum matches, 
+   identify duplicate checksums, or whether the file is new to the directory
+3.5 Append checksum to file name, if desired
+4. Check mediainfo metadata against image and audio file standards
+   (and, in the future LSU's preferred file specs), to determine if file
+   has unexpected or incorrect properties while still being valid
+5. Produce a csv inventory of all the file names for each directory
+   with the fields:
+    * Time stamp of file processed
+    * Full file path
+    * Directory that the file is in
+    * File name (and previous file name, if checksum is appended to file name)
+    * Checksum
+    * Checksum algorithm
+    * Whether the file is being processed by the script for the first time,
+      which would indicate a new file (Boolean value)
+    * Whether the most recently generated checksum matches the most recent
+      past checksum if the file is not new
+      (compares checksum to past inventory, this is also Boolean)
+    * Tell whether the file is valid according to
+      mediainfo metadata matching with expected metadata
+
 
