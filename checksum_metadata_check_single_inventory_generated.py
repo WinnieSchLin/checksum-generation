@@ -58,7 +58,6 @@ def take_inputs():
         Paste the *FULL* path to the folder directory \n\
         that you would like to save the inventory in:\n> ')
 
-    today = datetime.date.today()
     checksum_options = ['SHA1', 'MD5', 'SHA256']
     checksum_type = (input('\nCHECKSUM SELECTION:\n\
         Select your checksum type!\n\
@@ -114,7 +113,8 @@ def check_for_inventories(file_dir, inventory_dir):
                             '\\__Inventory_' + modified_path + '__*.csv')\
                             ,key=os.path.getmtime))
     except (OSError, ValueError): 
-        stop_this = ''
+        # this is the first inventory done for this dir
+        first_inventory_of_dir = True
     # if it exists, open it, turn it into a list
     if latest_inventory != '':
         with open(latest_inventory) as old_inventory:
@@ -142,15 +142,11 @@ def recursively_do_everything(file_dir, inventory_dir, checksum_type, include_tr
                 # reset file-specific variables for every file
                 new_file = ''
                 checksum_consistent = ''
-                name_without_checksum = ''
                 file_error = []
                 file_error_count = 0
                 # split the portions of the file name to separate the extension
                 file_list = name.split('.')
                 file_ext = file_list[-1]
-                file_name_parts = [file_list[0:-1], file_ext]
-                name_without_checksum = '.'.join(map(str, file_name_parts))
-                file_name_with_checksum = name
                 run_checksum = subprocess.check_output(('certUtil -hashfile "' \
                                                         + name_with_path + '" ' \
                                                         + checksum_type), \
