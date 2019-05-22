@@ -9,7 +9,7 @@ import glob, os, subprocess, datetime, time, sys, csv
 
 
 '''
-Winnie Schwaid-Lindner - v.03 of file renaming and inventory script.
+Winnie Schwaid-Lindner - checksum and inventory script.
 
 
 1. Ask the root directory, inventory directory, hash algorithm, 
@@ -33,31 +33,32 @@ Winnie Schwaid-Lindner - v.03 of file renaming and inventory script.
     * Whether the most recently generated checksum matches the most recent
       past checksum if the file is not new
       (compares checksum to past inventory, this is also Boolean)
+    * Whether there are any duplicate checksums
     * Tell whether the file is valid according to
       mediainfo metadata matching with expected metadata
 '''
-line_break = ('{:^}'.format('-'*80))
-# do not reset
-inventory_acc = 'sep=`\nProcessingTimeStamp`FilePath`RootDirectory`FileName\
-`Checksum`ChecksumType`NewFile?`ChecksumMatchesPast?`FileCorrupt?\n'
-
 def take_inputs():
     file_dir_input = ''
-    cant_process_zero_files_silly = ''
+    # while there is no path selected
     while '\\' not in file_dir_input:
         # the directory you want to work with
         file_dir_input = input('CONTENT FILE DIRECTORY:\n\
         Paste the *FULL* path to the folder directory \n\
         that you would like to process:\n> ')
+    # add '\\?\' to make universal path (combat character limit for long paths)
     file_dir = '\\\\?\\%s' % file_dir_input
 
-    inventory_dir = ''
-    while '\\' not in inventory_dir:
+    inventory_dir_input = ''
+    # while there is no path selected
+    while '\\' not in inventory_dir_input:
         # the directory you want to work with
         inventory_dir = input('\nINVENTORY DIRECTORY:\n\
         Paste the *FULL* path to the folder directory \n\
         that you would like to save the inventory in:\n> ')
-
+    # add '\\?\' to make universal path (combat character limit for long paths)
+    inventory_dir = '\\\\?\\%s' % file_dir_input
+    
+    # existing checksum options that you can pick from
     checksum_options = ['SHA1', 'MD5', 'SHA256']
     checksum_type = (input('\nCHECKSUM SELECTION:\n\
         Select your checksum type!\n\
@@ -68,7 +69,9 @@ def take_inputs():
         # if you didn't select a valid checksum, it'll go MD5.
         print('Not a valid choice. Defaulting to MD5 checksums.')
         checksum_type = 'MD5'
-    while cant_process_zero_files_silly == '':
+    
+    file_type_include_exclude = ''
+    while file_type_include_exclude == '':
         # file type on exclusionary or inclusionary basis
         include_true_exclude_false = True
         file_type_include_exclude = input('\nFILE TYPE INCLUDE / EXCLUDE:\n\
@@ -81,28 +84,31 @@ def take_inputs():
             include_true_exclude_false = False
         elif file_type_include_exclude not in ("I", "E"):
             print('Not a valid choice. Defaulting to INCLUDE.')
+        
+        # file types that you'd like to highlight
+        file_type_string = ' '
+        while file_type_string == ' ':
+            file_type_string = input('\nFILE TYPE SELECTION:\n\
+            List file types that you would like to process separated by a space\n\
+            (ex "pdf jpg xml docx")\n\
+            NOTE: If you do not input a file type, every file in the folder\n\
+            will be processed.\n> ')
+            if (include_true_exclude_false == False) and (file_type_string == ''):
+                print("ERROR, you can't exclude all files... \
+        Let's try that again...\n")
 
-        file_type_string = input('\nFILE TYPE SELECTION:\n\
-        List file types that you would like to process separated by a space\n\
-        (ex "pdf jpg xml docx")\n\
-        NOTE: If you do not input a file type, every file in the folder\n\
-        will be processed.\n> ')
-        if (include_true_exclude_false == False) and (file_type_string == ''):
-            print("ERROR, you can't exclude all files... \
-    Let's try that again...\n")
-        else:
-            cant_process_zero_files_silly = "aw yis"
     # separate file types from one string into a list
     file_types = file_type_string.split()
     return file_dir, inventory_dir, checksum_type, include_true_exclude_false, file_types, file_type_string
 
-
+# see if there are existing inventories of the same directory
 def check_for_inventories(file_dir, inventory_dir):
     latest_inventory = ''
     read_inventory = []
     first_inventory_of_dir = False
-
-
+    set_first_dir = set()
+    set_first_dir_names = set()
+    set_matches = set()
 
     # making path for file name
     modified_path = (file_dir.replace('\\\\?\\', "").replace('\\', "'").replace(":", "'"))
@@ -124,11 +130,27 @@ def check_for_inventories(file_dir, inventory_dir):
     else:
         # this is the first inventory done for this dir
         first_inventory_of_dir = True
-    return modified_path, first_inventory_of_dir, read_inventory
+
+    # if not the first inventory
+    if first_inventory_of_dir == False:
+        dict_first_dir = {}
+        # read row by row
+        for row in read_inventory:
+            # if there's a full line (which would indicate that there's a file represented)
+            if len(row) > 4:
+                # add info to dict and 2 sets
+                dict_first_dir[(row[1])] = row[4]
+                set_first_dir.add((row[1], row[4]))
+                set_first_dir_names.add((row[1]))
+            else:
+                # if there's a file that previously was listed as missing, this will catch it
+                set_first_dir_names.add((row[1]))
+
+    return modified_path, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches
 
 
-def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, file_types, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory):
-        # for each folder and file within that directory
+def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, file_types, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches):
+    # for each folder and file within that directory
     for root, dirs, files in os.walk(file_dir):
         for folder in dirs:
             dir_name = folder
@@ -147,10 +169,12 @@ def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, fi
                 # split the portions of the file name to separate the extension
                 file_list = name.split('.')
                 file_ext = file_list[-1]
-                new_file, checksum, checksum_consistent, file_error, file_error_count, inventory_acc = checksums(name, name_with_path, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, new_file, checksum_consistent, file_error, file_error_count, file_list, file_ext)
+                new_file, checksum, checksum_consistent, file_error, file_error_count, inventory_acc, set_matches = checksums(name, name_with_path, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, new_file, checksum_consistent, file_error, file_error_count, file_list, file_ext, set_first_dir, dict_first_dir, set_first_dir_names, set_matches)
+                # find errors in mediainfo for images and audio
                 file_error_count_images, file_error_images = mediainfo_images(name, name_with_path, file_error_count, file_error)
                 file_error_count_audio, file_error_audio = mediainfo_audio(name, name_with_path, file_error_count, file_error)
                 file_error_count = file_error_count_audio + file_error_count_images
+                #combine errors to single field
                 file_error = file_error_audio + file_error_images
                 inventory_acc = accumulation(inventory_acc, time_stamp, name_with_path, root, name, checksum, checksum_type, new_file, checksum_consistent, file_error, file_error_count)
             else:
@@ -158,9 +182,12 @@ def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, fi
                 #inventory_acc += ('"%s"`"%s"`"%s"`"%s"`"File extension not selected \
     #for processing"\n' % (time_stamp, name_with_path, root, name))
                 inventory_acc += f"""{time_stamp}`{name_with_path}`{root}`{name}`"File extension not selected for processing"\n"""
-    return inventory_acc
-    
-def checksums(name, name_with_path, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, new_file, checksum_consistent, file_error, file_error_count, file_list, file_ext):
+    # determine which files were in previous inventory but not dir
+    leftover_files = set_first_dir_names - set_matches
+    return inventory_acc, leftover_files
+
+
+def checksums(name, name_with_path, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, new_file, checksum_consistent, file_error, file_error_count, file_list, file_ext, set_first_dir, dict_first_dir, set_first_dir_names, set_matches):
     run_checksum = subprocess.check_output(('certUtil -hashfile "' \
                                             + name_with_path + '" ' \
                                             + checksum_type), \
@@ -176,43 +203,40 @@ def checksums(name, name_with_path, checksum_type, inventory_acc, first_inventor
         # if they don't match, there's an error
         checksum_consistent += 'Duplicate checksum.'
         # print error in shell
-        print('---WARNING, CHECKSUM APPEARS MORE THAN ONCE:\n\
+        print('---WARNING, CHECKSUM APPEARS MORE THAN ONCE:\n   \
 %s\n' % (name_with_path))
-
-    # if not the first inventory
-    if first_inventory_of_dir == False:
-        # read row by row
-        for row in read_inventory:
-            # if the file name is in the row
-            if name in row[1]:
-                # it's not a new file
-                new_file = ' '
-                # if the checksums match
-                if checksum in str(row[4]):
-                    # they are consistent
-                    checksum_consistent += ' ' 
-                else:
-                    # if they don't match, there's an error
-                    checksum_consistent += 'Inconsistent checksum.'
-                    # print error in shell
-                    print('---WARNING, \
-CHECKSUM DOES NOT MATCH:\n   %s\n' % (row[1]))
-            # if there's a file in the inventory that's not
-            #   in the directory, show error
-            if (os.path.isfile(row[1]) == False \
-                or os.access(row[1], os.R_OK) == False) \
-                and (row[1] != 'FilePath') and (row[1] != ''):
-                if (('`"%s"`"File is missing or cannot be accessed"\n' \
-                    % (row[1])) in inventory_acc) == False:
-                    inventory_acc += ('"%s"`"%s"`"File is missing \
-or cannot be accessed"\n' % (time_stamp, (row[1])))
-                    print('---WARNING, \
-FILE IS MISSING OR CAN NOT BE ACCESSED:\n   %s\n' \
-                        % (row[1]))
+    
+    if name_with_path in set_first_dir_names:
+        # it's not a new file
+        new_file = ' '
+        # if the checksums match
+        if dict_first_dir[name_with_path] in checksum:
+            # they are consistent
+            checksum_consistent += ' '
+            set_matches.add((name_with_path))
+        else:
+            # if they don't match, there's an error
+            checksum_consistent += 'Inconsistent checksum.'
+            # print error in shell
+            print('---WARNING, \
+CHECKSUM DOES NOT MATCH:\n   %s\n' % (name_with_path))
     else:
         new_file = 'First inventory of this directory'
         checksum_consistent += ' '
-    return new_file, checksum, checksum_consistent, file_error, file_error_count, inventory_acc
+    return new_file, checksum, checksum_consistent, file_error, file_error_count, inventory_acc, set_matches
+
+
+def file_in_inv_not_dir(inventory_acc, leftover_files):
+    for leftover in leftover_files:
+        if (('`"%s"`"File is missing or cannot be accessed"\n' \
+            % (leftover)) in inventory_acc) == False and leftover not in ('FilePath', ""):
+            time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
+            inventory_acc += ('"%s"`"%s"`"File is missing \
+or cannot be accessed"\n' % (time_stamp, (leftover)))
+            print('---WARNING, \
+FILE IS MISSING OR CAN NOT BE ACCESSED:\n   %s\n' \
+                % (leftover))
+    return inventory_acc
 
 def mediainfo_images(name, name_with_path, file_error_count, file_error):
     # look at mediainfo technical metadata of image files
@@ -267,6 +291,8 @@ IMAGE FILE IS NOT LOSSLESS:\n   %s\n' % (name_with_path))
 def mediainfo_audio(name, name_with_path, file_error_count, file_error):
     #look at mediainfo technical metadata of wav files
     file_error_count_audio = 0
+    file_error_audio = []
+
     if name.lower().endswith("wav"):
         file_error_count_audio = 0
         file_error_audio = []
@@ -327,7 +353,57 @@ def accumulation(inventory_acc, time_stamp, name_with_path, root, name, checksum
                         checksum_consistent, error_grouping))
     return inventory_acc
 
+
+
+def write_file(inventory_dir, modified_path, inventory_acc):
+    time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
+    # the file name for the generated inventory.
+    #   This will start with two underscores for easy sorting within the directory
+    #   and also contain the directory's name in its own file name
+    #   in case the inventory becomes disassociated.
+    inventory_name = (inventory_dir + '\\__Inventory_' + modified_path + \
+                    '___' + str(time_stamp) + '.csv')
+    
+    # creates new file for inventory
+    with open(inventory_name, 'w+') as outfile:
+        # fills in accumulator
+        outfile.writelines(inventory_acc)
+    # all done!
+    outfile.close()
+    # print that this inventory has been completed
+    print('%s\nCOMPLETED:\nInventory saved as\n%s' \
+        % (('{:^}'.format('='*80)),inventory_name))
+
+
+def main():
+#    file_dir, inventory_dir, checksum_type, include_true_exclude_false, file_types, file_type_string = take_inputs()
+    file_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Contained_Test'
+    inventory_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories'
+    checksum_type = 'MD5'
+    include_true_exclude_false = True
+    file_type_string = ''
+    file_types = file_type_string.split()
+    modified_path, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches = check_for_inventories(file_dir, inventory_dir)
+    inventory_acc_recursive, leftover_files = recursive_by_file(file_dir, include_true_exclude_false, file_type_string, file_types, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches)
+    inventory_acc_total = file_in_inv_not_dir(inventory_acc_recursive, leftover_files)
+    write_file(inventory_dir, modified_path, inventory_acc_total)
+
+
+if __name__ == '__main__':
+    line_break = ('{:^}'.format('-'*80))
+    # do not reset
+    inventory_acc = 'sep=`\nProcessingTimeStamp`FilePath`RootDirectory`FileName\
+    `Checksum`ChecksumType`NewFile?`ChecksumMatchesPast?`FileCorrupt?\n'
+    main()
+
+# these are the directories I've been running it on locally, here for easy ref
+#   S:\Departments\Digital Services\Internal\DigiPres\Checksum_Inventory_Generation\Contained_Test
+#   S:\Departments\Digital Services\Internal\DigiPres\Checksum_Inventory_Generation\Inventories
+
+
 '''
+# below is the original work, pre-refactoring. This is here for reference, and will be removed later:
+
 def recursively_do_everything(file_dir, inventory_dir, checksum_type, include_true_exclude_false, file_types, file_type_string, modified_path, first_inventory_of_dir, read_inventory):
         # for each folder and file within that directory
     for root, dirs, files in os.walk(file_dir):
@@ -508,37 +584,3 @@ def recursively_do_everything(file_dir, inventory_dir, checksum_type, include_tr
     for processing"\n' % (time_stamp, name_with_path, root, name))
     return inventory_acc
 '''
-
-def write_file(inventory_dir, modified_path, inventory_acc):
-    time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
-    # the file name for the generated inventory.
-    #   This will start with two underscores for easy sorting within the directory
-    #   and also contain the directory's name in its own file name
-    #   in case the inventory becomes disassociated.
-    inventory_name = (inventory_dir + '\\__Inventory_' + modified_path + \
-                    '___' + str(time_stamp) + '.csv')
-    
-    # creates new file for inventory
-    with open(inventory_name, 'w+') as outfile:
-        # fills in accumulator
-        outfile.writelines(inventory_acc)
-    # all done!
-    outfile.close()
-    # print that this inventory has been completed
-    print('%s\nCOMPLETED:\nInventory saved as\n%s' \
-        % (('{:^}'.format('='*80)),inventory_name))
-
-
-def main():
-    file_dir, inventory_dir, checksum_type, include_true_exclude_false, file_types, file_type_string = take_inputs()
-    modified_path, first_inventory_of_dir, read_inventory = check_for_inventories(file_dir, inventory_dir)
-    inventory_acc_total = recursive_by_file(file_dir, include_true_exclude_false, file_type_string, file_types, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory)
-    write_file(inventory_dir, modified_path, inventory_acc_total)
-
-
-if __name__ == '__main__':
-    line_break = ('{:^}'.format('-'*80))
-    # do not reset
-    inventory_acc = 'sep=`\nProcessingTimeStamp`FilePath`RootDirectory`FileName\
-    `Checksum`ChecksumType`NewFile?`ChecksumMatchesPast?`FileCorrupt?\n'
-    main()
