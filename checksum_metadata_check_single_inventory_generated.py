@@ -165,6 +165,7 @@ def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, \
                 (line_break, root, dir_name))
         for name in files:
             name_with_path = (os.path.join(root, name))
+            set_matches.add((name_with_path))
             # select file types to process
             if name.endswith(tuple(file_types)) == include_true_exclude_false \
             or file_type_string == '':
@@ -203,8 +204,8 @@ def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, \
                 time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
                 #inventory_acc += ('"%s"`"%s"`"%s"`"%s"`"File extension not selected \
     #for processing"\n' % (time_stamp, name_with_path, root, name))
-                inventory_acc += f"""{time_stamp}`{name_with_path}`{root}`\
-                    {name}`"File extension not selected for processing"\n"""
+                inventory_acc += f"""{time_stamp}`{name_with_path}`{root}`{name}\
+`"File extension not selected for processing"\n"""
     # determine which files were in previous inventory but not dir
     leftover_files = set_first_dir_names - set_matches
     return inventory_acc, leftover_files
@@ -224,8 +225,8 @@ def checksums(name, name_with_path, checksum_type, inventory_acc, \
         # if they don't match, there's an error
         checksum_consistent += 'Duplicate checksum.'
         # print error in shell
-        print('---WARNING, CHECKSUM APPEARS MORE THAN ONCE:\n   \
-            %s\n' % (name_with_path))
+        print('---WARNING, CHECKSUM APPEARS MORE THAN ONCE:\
+            \n   %s\n' % (name_with_path))
     if name_with_path in set_first_dir_names:
         # it's not a new file
         new_file = ' '
@@ -233,7 +234,6 @@ def checksums(name, name_with_path, checksum_type, inventory_acc, \
         if dict_first_dir[name_with_path] in checksum:
             # they are consistent
             checksum_consistent += ' '
-            set_matches.add((name_with_path))
         else:
             # if they don't match, there's an error
             checksum_consistent += 'Inconsistent checksum.'
@@ -252,9 +252,9 @@ def file_in_inv_not_dir(inventory_acc, leftover_files):
             % (leftover)) in inventory_acc) == False \
             and leftover not in ('FilePath', ""):
             time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
-            inventory_acc += ('"%s"`"%s"`"File is missing \
-                or cannot be accessed"\n' % (time_stamp, (leftover)))
-            print('---WARNING, FILE IS MISSING OR CAN NOT BE ACCESSED:\
+            inventory_acc += ('"%s"`"%s"`"File is missing or cannot be accessed"\n'\
+                 % (time_stamp, (leftover)))
+            print('---WARNING, FILE IS MISSING OR CANNOT BE ACCESSED:\
                 \n   %s\n' % (leftover))
     return inventory_acc
 
@@ -376,8 +376,8 @@ def write_file(inventory_dir, modified_path, inventory_acc):
     # all done!
     outfile.close()
     # print that this inventory has been completed
-    print('%s\nCOMPLETED:\nInventory saved as\n%s' % (('{:^}'.format('='*80)), \
-        inventory_name))
+    print('%s\nCOMPLETED:\nInventory saved as\n%s\n%s' % (('{:^}'.format('='*80)), \
+        inventory_name, ('{:^}'.format('='*80))))
 
 
 def main():
@@ -388,8 +388,8 @@ def main():
     file_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Contained_Test'
     inventory_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories'
     checksum_type = 'MD5'
-    include_true_exclude_false = True
-    file_type_string = ''
+    include_true_exclude_false = False
+    file_type_string = 'docx pdf'
     file_types = file_type_string.split()
     modified_path, first_inventory_of_dir, read_inventory, set_first_dir, \
         dict_first_dir, set_first_dir_names, set_matches = \
@@ -412,6 +412,18 @@ if __name__ == '__main__':
 '''
 these are the directories I've been running it on locally, here for easy ref
 
+file_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Contained_Test'
+inventory_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories'
+checksum_type = 'MD5'
+include_true_exclude_false = True
+file_type_string = ''
+
+    file_dir = '\\\\?\\R:\\Projects\\Glacier-ReadyForUpload\\FPoC2013'
+    inventory_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories'
+    checksum_type = 'MD5'
+    include_true_exclude_false = False
+    file_type_string = 'docx xlsx'
+    
 \\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Contained_Test
 
 \\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories
@@ -454,7 +466,7 @@ def recursively_do_everything(file_dir, inventory_dir, checksum_type, include_tr
                     checksum_consistent += 'Duplicate checksum.'
                     # print error in shell
                     print('---WARNING, CHECKSUM APPEARS MORE THAN ONCE:\n\
-    %s\n' % (name_with_path))
+%s\n' % (name_with_path))
 
                 # if not the first inventory
                 if first_inventory_of_dir == False:
