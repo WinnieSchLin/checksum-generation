@@ -113,6 +113,7 @@ def check_for_inventories(file_dir, inventory_dir):
     set_first_dir = set()
     set_first_dir_names = set()
     set_matches = set()
+    dict_first_dir = {}
     # making path for file name
     modified_path = (file_dir.replace('\\\\?\\', "").replace('\\', "'")\
         .replace(":", "'"))
@@ -136,7 +137,6 @@ def check_for_inventories(file_dir, inventory_dir):
         first_inventory_of_dir = True
     # if not the first inventory
     if first_inventory_of_dir == False:
-        dict_first_dir = {}
         # read row by row
         for row in read_inventory:
             # if there's a full line
@@ -161,53 +161,64 @@ def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, \
     for root, dirs, files in os.walk(file_dir):
         for folder in dirs:
             dir_name = folder
-            print('%s\nCURRENTLY PROCESSING:\n%s\\%s\n' % \
+            print('\n%s\nCURRENTLY PROCESSING:\n%s\\%s' % \
                 (line_break, root, dir_name))
         for name in files:
             name_with_path = (os.path.join(root, name))
+            print('--%s' % name_with_path)
             set_matches.add((name_with_path))
-            # select file types to process
-            if name.endswith(tuple(file_types)) == include_true_exclude_false \
-            or file_type_string == '':
-                # reset file-specific variables for every file
-                time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
-                new_file = ''
-                checksum_consistent = ''
-                file_error = []
-                file_error_count = 0
-                # split the portions of the file name to separate the extension
-                file_list = name.split('.')
-                file_ext = file_list[-1]
-                new_file, checksum, checksum_consistent, file_error, \
-                    file_error_count, inventory_acc, set_matches = \
-                    checksums(name, name_with_path, checksum_type, \
-                    inventory_acc, first_inventory_of_dir, read_inventory, \
-                    new_file, checksum_consistent, file_error, \
-                    file_error_count, file_list, file_ext, \
-                    set_first_dir, dict_first_dir, set_first_dir_names, \
-                    set_matches)
-                # find errors in mediainfo for images and audio
-                file_error_count_images, file_error_images = \
-                    mediainfo_images(name, name_with_path, file_error_count, \
-                    file_error)
-                file_error_count_audio, file_error_audio = \
-                    mediainfo_audio(name, name_with_path, file_error_count, \
-                    file_error)
-                file_error_count = file_error_count_audio + \
-                    file_error_count_images
-                #combine errors to single field
-                file_error = file_error_audio + file_error_images
-                inventory_acc = accumulation(inventory_acc, time_stamp, \
-                    name_with_path, root, name, checksum, checksum_type, \
-                    new_file, checksum_consistent, file_error, file_error_count)
-            else:
-                time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
-                #inventory_acc += ('"%s"`"%s"`"%s"`"%s"`"File extension not selected \
-    #for processing"\n' % (time_stamp, name_with_path, root, name))
+            time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
+            try:
+                # select file types to process
+                if name.endswith(tuple(file_types)) == include_true_exclude_false \
+                or file_type_string == '':
+                    # reset file-specific variables for every file
+                    new_file = ''
+                    checksum_consistent = ''
+                    file_error = []
+                    file_error_count = 0
+                    # split the portions of the file name to separate the extension
+                    file_list = name.split('.')
+                    file_ext = file_list[-1]
+                    new_file, checksum, checksum_consistent, file_error, \
+                        file_error_count, inventory_acc, set_matches = \
+                        checksums(name, name_with_path, checksum_type, \
+                        inventory_acc, first_inventory_of_dir, read_inventory, \
+                        new_file, checksum_consistent, file_error, \
+                        file_error_count, file_list, file_ext, \
+                        set_first_dir, dict_first_dir, set_first_dir_names, \
+                        set_matches)
+                    # find errors in mediainfo for images and audio
+                    file_error_count_images, file_error_images = 0, []
+                    if name.lower().endswith(('jpg', 'jp2', 'tif', 'tiff')):
+                        file_error_count_images, file_error_images = \
+                            mediainfo_images(name, name_with_path, file_error_count, \
+                            file_error)
+                    file_error_count_audio, file_error_audio = 0, []
+                    if name.lower().endswith(('wav')):
+                        file_error_count_audio, file_error_audio = \
+                            mediainfo_audio(name, name_with_path, file_error_count, \
+                            file_error)
+                    file_error_count = file_error_count_audio + \
+                        file_error_count_images
+                    #combine errors to single field
+                    file_error = file_error_audio + file_error_images
+                    inventory_acc = accumulation(inventory_acc, time_stamp, \
+                        name_with_path, root, name, checksum, checksum_type, \
+                        new_file, checksum_consistent, file_error, file_error_count)
+                else:
+                    time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
+                    #inventory_acc += ('"%s"`"%s"`"%s"`"%s"`"File extension not selected \
+        #for processing"\n' % (time_stamp, name_with_path, root, name))
+                    inventory_acc += f"""{time_stamp}`{name_with_path}`{root}`{name}\
+                        `"File extension not selected for processing"\n"""
+            except:
                 inventory_acc += f"""{time_stamp}`{name_with_path}`{root}`{name}\
-`"File extension not selected for processing"\n"""
-    # determine which files were in previous inventory but not dir
-    leftover_files = set_first_dir_names - set_matches
+                        `"Error in Processing"\n"""
+                print('---WARNING, ERROR IN PROCESSING:\n   %s\n' % (name_with_path))
+        # determine which files were in previous inventory but not dir
+        leftover_files = set_first_dir_names - set_matches
+
     return inventory_acc, leftover_files
 
 def checksums(name, name_with_path, checksum_type, inventory_acc, \
@@ -217,7 +228,7 @@ def checksums(name, name_with_path, checksum_type, inventory_acc, \
     run_checksum = subprocess.check_output(('certUtil -hashfile "' + \
         name_with_path + '" ' + checksum_type), shell=True)
     # split the returned string by line
-    checksum_split = run_checksum.decode().split('\r\n')
+    checksum_split = str(run_checksum).split('\\r\\n')
     # take only the second line, which is the checksum
     checksum = checksum_split[1]
     new_file = 'Yes'
@@ -262,88 +273,85 @@ def mediainfo_images(name, name_with_path, file_error_count, file_error):
     # look at mediainfo technical metadata of image files
     file_error_count_images = 0
     file_error_images = []
-    if name.lower().endswith("jpg") or name.lower().endswith("tif") \
-    or name.lower().endswith("tiff"):
-        file_extension = (subprocess.check_output(('MediaInfo \
-            --Output=General;%FileExtension% "' + name_with_path +'"'), \
-            shell=True))
-        internet_media_type = (subprocess.check_output('MediaInfo \
-            --Output=General;%InternetMediaType% "' + name_with_path +'"', \
-            shell=True))                                                             
-        extensions_usually_used = (subprocess.check_output('MediaInfo \
-            --Output=General;%Format/Extensions% "' + name_with_path +'"', \
-            shell=True))                                                                 
-        compression_mode = (subprocess.check_output('MediaInfo \
-            --Output=Image;%Compression_Mode% "' + name_with_path +'"', \
-            shell=True))                                                          
-        internet_media_type_formatted = (str(internet_media_type)\
-            .split('/'))[0].strip("\\b'")
-        file_extension_formatted = (str(file_extension)).replace("b'", "")\
-            .replace("\\r\\n'", "")
-        extensions_usually_used_formatted = \
-            (str(extensions_usually_used)).replace("b'", "")\
-            .replace("\\r\\n'", "")
-        compression_mode_formatted = (str(compression_mode))\
-            .lower().strip().replace("b'", "").replace("\\r\\n'", "")
-        if internet_media_type_formatted != 'image':
-            file_error_count_images += 1
-            file_error_images.append("File should be an image but isn't.")
-            print('---WARNING, IMAGE FILE IS NOT IMAGE:\n   %s\n' % \
-                (name_with_path))
-        if file_extension_formatted not in extensions_usually_used_formatted:
-            file_error_count_images += 1
-            file_error_images.append('File extension not expected value.')
-            print('---WARNING, IMAGE FILE EXTENSION NOT EXPECTED:\n   %s\n' % \
-                (name_with_path))
-        if compression_mode_formatted != 'lossless':
-            file_error_count_images += 1
-            file_error_images.append('Compression is not lossless.')
-            print('---WARNING, IMAGE FILE IS NOT LOSSLESS:\n   %s\n' % \
-                (name_with_path))
+    file_extension = (subprocess.check_output(('MediaInfo \
+        --Output=General;%FileExtension% "' + name_with_path +'"'), \
+        shell=True))
+    internet_media_type = (subprocess.check_output('MediaInfo \
+        --Output=General;%InternetMediaType% "' + name_with_path +'"', \
+        shell=True))                                                             
+    extensions_usually_used = (subprocess.check_output('MediaInfo \
+        --Output=General;%Format/Extensions% "' + name_with_path +'"', \
+        shell=True))                                                                 
+    compression_mode = (subprocess.check_output('MediaInfo \
+        --Output=Image;%Compression_Mode% "' + name_with_path +'"', \
+        shell=True))                                                          
+    internet_media_type_formatted = (str(internet_media_type)\
+        .split('/'))[0].strip("\\b'")
+    file_extension_formatted = (str(file_extension)).replace("b'", "")\
+        .replace("\\r\\n'", "")
+    extensions_usually_used_formatted = \
+        (str(extensions_usually_used)).replace("b'", "")\
+        .replace("\\r\\n'", "")
+    compression_mode_formatted = (str(compression_mode))\
+        .lower().strip().replace("b'", "").replace("\\r\\n'", "")
+    if internet_media_type_formatted != 'image':
+        file_error_count_images += 1
+        file_error_images.append("File should be an image but isn't.")
+        print('---WARNING, IMAGE FILE IS NOT IMAGE:\n   %s\n' % \
+            (name_with_path))
+    if file_extension_formatted not in extensions_usually_used_formatted:
+        file_error_count_images += 1
+        file_error_images.append('File extension not expected value.')
+        print('---WARNING, IMAGE FILE EXTENSION NOT EXPECTED:\n   %s\n' % \
+            (name_with_path))
+    if compression_mode_formatted != 'lossless':
+        file_error_count_images += 1
+        file_error_images.append('Compression is not lossless.')
+        print('---WARNING, IMAGE FILE IS NOT LOSSLESS:\n   %s\n' % \
+            (name_with_path))
     return file_error_count_images, file_error_images
 
 def mediainfo_audio(name, name_with_path, file_error_count, file_error):
     #look at mediainfo technical metadata of wav files
     file_error_count_audio = 0
     file_error_audio = []
-    if name.lower().endswith("wav"):
-        file_error_count_audio = 0
-        file_error_audio = []
-        file_extension = (subprocess.check_output(('MediaInfo \
-            --Output=General;%FileExtension% "' + name_with_path +'"'), \
-            shell=True))
-        internet_media_type = (subprocess.check_output('MediaInfo \
-            --Output=General;%InternetMediaType% "' + name_with_path +'"', \
-            shell=True))                                                             
-        extensions_usually_used = (subprocess.check_output('MediaInfo \
-            --Output=General;%Format/Extensions% "' + name_with_path +'"', \
-            shell=True))
-        sampling_rate = (subprocess.check_output('MediaInfo \
-            --Output=Audio;%SamplingRate% "' + name_with_path +'"', \
-            shell=True))                                                          
-        internet_media_type_formatted = (str(internet_media_type)\
-            .split('/'))[0].strip("\\b'")
-        file_extension_formatted = (str(file_extension)).replace("b'", "")\
-            .replace("\\r\\n'", "")
-        extensions_usually_used_formatted = (str(extensions_usually_used))\
-            .replace("b'", "").replace("\\r\\n'", "")
-        sampling_rate_formatted = (str(sampling_rate))\
-            .lower().strip().replace("b'", "").replace("\\r\\n'", "")
-        if internet_media_type_formatted != 'audio':
-            file_error_count_audio += 1
-            file_error_audio.append("File should be a audio but isn't.")
-            print('---WARNING, AUDIO FILE IS NOT AUDIO:\n   %s\n' % \
-                (name_with_path))
-        if file_extension_formatted not in extensions_usually_used_formatted:
-            file_error_count_audio += 1
-            file_error_audio.append('File extension not expected value.')
-            print('---WARNING, AUDIO FILE EXTENSION NOT EXPECTED:\n   %s\n' % \
-                (name_with_path))
-        if sampling_rate_formatted != '44100':
-            file_error_count_audio += 1
-            file_error_audio.append('Sampling rate is incorrect.')
-            print('---WARNING, AUDIO SAMPLING RATE INCORRECT:\n   %s\n' % \
-                (name_with_path))
+    file_error_count_audio = 0
+    file_error_audio = []
+    file_extension = (subprocess.check_output(('MediaInfo \
+        --Output=General;%FileExtension% "' + name_with_path +'"'), \
+        shell=True))
+    internet_media_type = (subprocess.check_output('MediaInfo \
+        --Output=General;%InternetMediaType% "' + name_with_path +'"', \
+        shell=True))                                                             
+    extensions_usually_used = (subprocess.check_output('MediaInfo \
+        --Output=General;%Format/Extensions% "' + name_with_path +'"', \
+        shell=True))
+    sampling_rate = (subprocess.check_output('MediaInfo \
+        --Output=Audio;%SamplingRate% "' + name_with_path +'"', \
+        shell=True))                                                          
+    internet_media_type_formatted = (str(internet_media_type)\
+        .split('/'))[0].strip("\\b'")
+    file_extension_formatted = (str(file_extension)).replace("b'", "")\
+        .replace("\\r\\n'", "")
+    extensions_usually_used_formatted = (str(extensions_usually_used))\
+        .replace("b'", "").replace("\\r\\n'", "")
+    sampling_rate_formatted = (str(sampling_rate))\
+        .lower().strip().replace("b'", "").replace("\\r\\n'", "")
+    if internet_media_type_formatted != 'audio':
+        file_error_count_audio += 1
+        file_error_audio.append("File should be a audio but isn't.")
+        print('---WARNING, AUDIO FILE IS NOT AUDIO:\n   %s\n' % \
+            (name_with_path))
+    if file_extension_formatted not in extensions_usually_used_formatted:
+        file_error_count_audio += 1
+        file_error_audio.append('File extension not expected value.')
+        print('---WARNING, AUDIO FILE EXTENSION NOT EXPECTED:\n   %s\n' % \
+            (name_with_path))
+    if sampling_rate_formatted != '44100':
+        file_error_count_audio += 1
+        file_error_audio.append('Sampling rate is incorrect.')
+        print('---WARNING, AUDIO SAMPLING RATE INCORRECT:\n   %s\n' % \
+            (name_with_path))
     return file_error_count_audio, file_error_audio
     
 def accumulation(inventory_acc, time_stamp, name_with_path, root, name, \
@@ -385,11 +393,11 @@ def main():
 #        file_types, file_type_string = take_inputs()
 
     # hardcoding inputs for now, otherwise it's just annoying to do every time
-    file_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Contained_Test'
+    file_dir = '\\\\?\\R:\\Projects\\Glacier-ReadyForUpload\\FPoC2013'
     inventory_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories'
     checksum_type = 'MD5'
     include_true_exclude_false = False
-    file_type_string = 'docx pdf'
+    file_type_string = 'docx xlsx'
     file_types = file_type_string.split()
     modified_path, first_inventory_of_dir, read_inventory, set_first_dir, \
         dict_first_dir, set_first_dir_names, set_matches = \
@@ -404,11 +412,14 @@ def main():
 
 
 if __name__ == '__main__':
+    # subprocess.Popen('cmd /u', shell=True)
     line_break = ('{:^}'.format('-'*80))
     inventory_acc = 'sep=`\nProcessingTimeStamp`FilePath`RootDirectory`FileName\
     `Checksum`ChecksumType`NewFile?`ChecksumMatchesPast?`FileCorrupt?\n'
     main()
 
+
+#
 '''
 these are the directories I've been running it on locally, here for easy ref
 
