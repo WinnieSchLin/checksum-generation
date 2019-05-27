@@ -268,6 +268,9 @@ def file_in_inv_not_dir(inventory_acc, leftover_files):
             print('---WARNING, FILE IS MISSING OR CANNOT BE ACCESSED:\
                 \n   %s\n' % (leftover))
     return inventory_acc
+# subprocess.check_output('mediainfo -f %s ' %) 
+def parse_mediainfo_output(output):
+    
 
 def mediainfo_images(name, name_with_path, file_error_count, file_error):
     # look at mediainfo technical metadata of image files
