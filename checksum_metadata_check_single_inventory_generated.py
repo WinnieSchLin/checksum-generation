@@ -268,26 +268,48 @@ def file_in_inv_not_dir(inventory_acc, leftover_files):
             print('---WARNING, FILE IS MISSING OR CANNOT BE ACCESSED:\
                 \n   %s\n' % (leftover))
     return inventory_acc
-# subprocess.check_output('mediainfo -f %s ' %) 
-def parse_mediainfo_output(output):
-    
+
+
+def run_mediainfo(filepath):
+    # run mediainfo stuff
+    # subprocess.check_output('mediainfo -f %s ' %) 
+    # return mediainfo_output    
+
+
+def parse_mediainfo_output(output, file_path):
+    # list_fields_we_care_about
+    # set(filetype, field, expected_value)
+    # get mediainfo's thoughts on file type ("internet_media_type")
+    # iterate through fields we care about
+        # make a set of mediainfo output set(filetype, field_we_care_about, expected_value)
+
+        # compare .endswith() to mediainfo output
+        # 
+    # 
+    # if output.filekind == "audio":
+    #     errors = check_audio_errors(output)
+    if output.filekind == "image":
+        return file_extension, internet_media_type, extensions_usually_used, compression_mode
+
 
 def mediainfo_images(name, name_with_path, file_error_count, file_error):
     # look at mediainfo technical metadata of image files
     file_error_count_images = 0
     file_error_images = []
-    file_extension = (subprocess.check_output(('MediaInfo \
-        --Output=General;%FileExtension% "' + name_with_path +'"'), \
-        shell=True))
-    internet_media_type = (subprocess.check_output('MediaInfo \
-        --Output=General;%InternetMediaType% "' + name_with_path +'"', \
-        shell=True))                                                             
-    extensions_usually_used = (subprocess.check_output('MediaInfo \
-        --Output=General;%Format/Extensions% "' + name_with_path +'"', \
-        shell=True))                                                                 
-    compression_mode = (subprocess.check_output('MediaInfo \
-        --Output=Image;%Compression_Mode% "' + name_with_path +'"', \
-        shell=True))                                                          
+    # file_extension = (subprocess.check_output(('MediaInfo \
+    #     --Output=General;%FileExtension% "' + name_with_path +'"'), \
+    #     shell=True))
+    # internet_media_type = (subprocess.check_output('MediaInfo \
+    #     --Output=General;%InternetMediaType% "' + name_with_path +'"', \
+    #     shell=True))                                                             
+    # extensions_usually_used = (subprocess.check_output('MediaInfo \
+    #     --Output=General;%Format/Extensions% "' + name_with_path +'"', \
+    #     shell=True))                                                                 
+    # compression_mode = (subprocess.check_output('MediaInfo \
+    #     --Output=Image;%Compression_Mode% "' + name_with_path +'"', \
+    #     shell=True))       
+    mediainfo_output = run_mediainfo(filepath)
+    file_extension, internet_media_type, extensions_usually_used, compression_mode = parse_mediainfo_output(mediainfo_output)
     internet_media_type_formatted = (str(internet_media_type)\
         .split('/'))[0].strip("\\b'")
     file_extension_formatted = (str(file_extension)).replace("b'", "")\
