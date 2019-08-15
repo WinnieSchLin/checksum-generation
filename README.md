@@ -30,6 +30,8 @@ In general, the script will:
       mediainfo metadata matching with expected metadata
 
 *Future updates*
+* Have mediainfo only run once and parse output instead of running a separate command 
+  for each field (hopefully this'll cut down on some time)
 * Output inventory every X number of files, so that losing network connection will not 
   result in lost work
 * Determine how to have script restart from last saved inventory in case of failure
