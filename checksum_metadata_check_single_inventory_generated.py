@@ -17,15 +17,17 @@ Winnie Schwaid-Lindner - checksum and inventory script.
 2. Calculate the checksum using certUtil
 3. Look into past inventories and see whether the checksum matches, 
    identify duplicate checksums, or whether the file is new to the directory
+    * Append checksum to file name, if desired
 4. Check mediainfo metadata against image and audio file standards
-   (and, in the future LSU's preferred file specs), to determine if file
-   has unexpected or incorrect properties while still being valid
+   (and, in the future, check to see whether it matches LSU's preferred file specs),
+   to determine if file has unexpected or incorrect properties while still being 
+   valid, or determine if the file is corrupted
 5. Produce a csv inventory of all the file names for each directory
    with the fields:
     * Time stamp of file processed
     * Full file path
     * Directory that the file is in
-    * File name
+    * File name (and previous file name, if checksum is appended to file name)
     * Checksum
     * Checksum algorithm
     * Whether the file is being processed by the script for the first time,
@@ -33,7 +35,6 @@ Winnie Schwaid-Lindner - checksum and inventory script.
     * Whether the most recently generated checksum matches the most recent
       past checksum if the file is not new
       (compares checksum to past inventory, this is also Boolean)
-    * Whether there are any duplicate checksums
     * Tell whether the file is valid according to
       mediainfo metadata matching with expected metadata
 '''
