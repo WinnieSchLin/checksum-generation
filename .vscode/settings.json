@@ -1,0 +1,10 @@
+{
+    "python.pythonPath": "C:\\Users\\wschlin\\AppData\\Local\\Continuum\\anaconda3\\python.exe",
+    "zenMode.hideStatusBar": false
+    // StatusBar color:
+    "workbench.colorCustomizations": {
+        "statusBar.background" : "#BE6A01",
+        "statusBar.noFolderBackground" : "#222225",
+        "statusBar.debuggingBackground": "#915100"
+        }
+}
