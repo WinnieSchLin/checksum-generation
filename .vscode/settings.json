@@ -1,6 +1,6 @@
 {
     "python.pythonPath": "C:\\Users\\wschlin\\AppData\\Local\\Continuum\\anaconda3\\python.exe",
-    "zenMode.hideStatusBar": false
+    "zenMode.hideStatusBar": false,
     // StatusBar color:
     "workbench.colorCustomizations": {
         "statusBar.background" : "#BE6A01",
