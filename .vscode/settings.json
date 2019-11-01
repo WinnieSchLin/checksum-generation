@@ -3,8 +3,20 @@
     "zenMode.hideStatusBar": false,
     // StatusBar color:
     "workbench.colorCustomizations": {
-        "statusBar.background" : "#BE6A01",
-        "statusBar.noFolderBackground" : "#222225",
-        "statusBar.debuggingBackground": "#915100"
-        }
+        "statusBar.noFolderBackground": "#222225",
+        "statusBar.debuggingBackground": "#915100",
+        "activityBar.background": "#f18601",
+        "activityBar.foreground": "#15202b",
+        "activityBar.inactiveForeground": "#15202b99",
+        "activityBarBadge.background": "#000000",
+        "activityBarBadge.foreground": "#ffe1bd",
+        "titleBar.activeBackground": "#be6a01",
+        "titleBar.inactiveBackground": "#be6a0199",
+        "titleBar.activeForeground": "#e7e7e7",
+        "titleBar.inactiveForeground": "#e7e7e799",
+        "statusBar.background": "#be6a01",
+        "statusBarItem.hoverBackground": "#f18601",
+        "statusBar.foreground": "#e7e7e7"
+    },
+        "peacock.color": "#BE6A01"
 }

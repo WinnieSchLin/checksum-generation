@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import glob, os, subprocess, datetime, time, sys, csv
+import xml.etree.ElementTree as ET
 
 
 # these are the directories I've been running it on locally, here for easy ref
@@ -153,6 +154,98 @@ def check_for_inventories(file_dir, inventory_dir):
                 set_first_dir_names.add((row[1]))
     return modified_path, first_inventory_of_dir, read_inventory, \
         set_first_dir, dict_first_dir, set_first_dir_names, set_matches
+#
+def file_name_inventory(file_dir, include_true_exclude_false, file_type_string, file_types):
+    file_name_acc = {}
+    file_count_acc = 0
+    not_selected_acc = set()
+    # for each folder and file within that directory
+    for root, dirs, files in os.walk(file_dir):
+        for folder in dirs:
+            dir_name = folder
+            print('\n%s\nCURRENTLY PROCESSING:\n%s\\%s' % \
+                (line_break, root, dir_name))
+        for name in files:
+            name_with_path = (os.path.join(root, name))
+            try:
+                # select file types to process
+                if name.endswith(tuple(file_types)) == include_true_exclude_false \
+                or file_type_string == '':
+                    # reset file-specific variables for every file
+                    # split the portions of the file name to separate the extension
+                    file_count_acc +=1
+                    file_name_acc[file_count_acc] = name_with_path
+                else:
+                    not_selected_acc.add((name_with_path))
+            except:
+                print('---WARNING, ERROR:\n   %s\n' % (name_with_path))
+    total_to_do = len(file_name_acc)
+    total_not_selected = len(not_selected_acc)
+    with open('C:\\Users\\wschlin\\Documents\\File_Name_Acc.txt', 'w') as file_name_acc_file:
+        # fills in accumulator
+        file_name_acc_file.writelines('%s\n\n%s' % (str(file_name_acc), str(not_selected_acc)))
+        
+    # all done!
+    file_name_acc_file.close()
+    return file_name_acc, not_selected_acc, total_to_do, total_not_selected
+
+def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, \
+    file_types, checksum_type, inventory_acc, first_inventory_of_dir, \
+    read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, \
+    set_matches):
+    # for each folder and file within that directory
+    checkpoint = 0
+    while checkpoint < total_to_do:
+        checkpoint += 1
+        name_with_path = file_name_acc[checkpoint]
+        set_matches.add((name_with_path))
+        time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
+        try:
+            # reset file-specific variables for every file
+            new_file = ''
+            checksum_consistent = ''
+            file_error = []
+            file_error_count = 0
+            # split the portions of the file name to separate the extension
+            name = os.path.basename(name_with_path)
+            file_ext = os.path.splitext(name)[-1]
+            new_file, checksum, checksum_consistent, file_error, \
+                file_error_count, inventory_acc, set_matches = \
+                checksums(name, name_with_path, checksum_type, \
+                inventory_acc, first_inventory_of_dir, read_inventory, \
+                new_file, checksum_consistent, file_error, \
+                file_error_count, file_list, file_ext, \
+                set_first_dir, dict_first_dir, set_first_dir_names, \
+                set_matches)
+            # find errors in mediainfo for images and audio
+            file_error_count_images, file_error_images = 0, []
+            if name.lower().endswith(('jpg', 'jp2', 'tif', 'tiff')):
+                file_error_count_images, file_error_images = \
+                    mediainfo_images(name, name_with_path, file_error_count, \
+                    file_error)
+            file_error_count_audio, file_error_audio = 0, []
+            if name.lower().endswith(('wav')):
+                file_error_count_audio, file_error_audio = \
+                    mediainfo_audio(name, name_with_path, file_error_count, \
+                    file_error)
+            file_error_count = file_error_count_audio + \
+                file_error_count_images
+            #combine errors to single field
+            file_error = file_error_audio + file_error_images
+            inventory_acc = accumulation(inventory_acc, time_stamp, \
+                name_with_path, root, name, checksum, checksum_type, \
+                new_file, checksum_consistent, file_error, file_error_count)
+        except:
+            inventory_acc += f"""{time_stamp}`{name_with_path}`{root}`{name}\
+                    `"Error in Processing"\n"""
+            print('---WARNING, ERROR IN PROCESSING:\n   %s\n' % (name_with_path))
+        del file_name_acc[checkpoint]
+        # determine which files were in previous inventory but not dir
+    leftover_files = set_first_dir_names - (set_matches|not_selected_acc)
+
+    return inventory_acc, leftover_files
+
+#
 
 def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, \
     file_types, checksum_type, inventory_acc, first_inventory_of_dir, \
@@ -354,7 +447,11 @@ def mediainfo_audio(name, name_with_path, file_error_count, file_error):
         print('---WARNING, AUDIO SAMPLING RATE INCORRECT:\n   %s\n' % \
             (name_with_path))
     return file_error_count_audio, file_error_audio
-    
+
+def mediainfo_parse(name, name_with_path, file_error_count, file_error, mediainfo_output):
+    element = ET.fromstring(mediainfo_output)
+
+
 def accumulation(inventory_acc, time_stamp, name_with_path, root, name, \
     checksum, checksum_type, new_file, checksum_consistent, file_error, \
     file_error_count):
