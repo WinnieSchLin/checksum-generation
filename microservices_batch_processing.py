@@ -267,13 +267,17 @@ def mediainfo(name, name_with_path, file_error_count, file_error):
     return file_error_count, file_error
 
 def checksums(name, name_with_path, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, new_file, checksum_consistent, file_error, file_error_count, file_ext, set_first_dir, dict_first_dir, set_first_dir_names, set_matches):
-    run_checksum = subprocess.check_output(('certUtil -hashfile "' + name_with_path + '" ' + checksum_type), shell=True)
+    checksum = ''
+    try:
+        run_checksum = subprocess.check_output(('certUtil -hashfile "' + name_with_path + '" ' + checksum_type), shell=True)
+    except:
+
     # split the returned string by line
     checksum_split = str(run_checksum).split('\\r\\n')
     # take only the second line, which is the checksum
     checksum = checksum_split[1]
     new_file = 'Yes'
-    if inventory_acc.count('"%s"' % (checksum)) > 0:
+    if (inventory_acc.count('"%s"' % (checksum)) > 0) and checksum is not '':
         # if they don't match, there's an error
         checksum_consistent += 'Duplicate checksum.'
         # print error in shell
