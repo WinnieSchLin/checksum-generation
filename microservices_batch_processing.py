@@ -17,7 +17,6 @@ Winnie Schwaid-Lindner - checksum and inventory script.
 2. Calculate the checksum using certUtil
 3. Look into past inventories and see whether the checksum matches, 
    identify duplicate checksums, or whether the file is new to the directory
-    * Append checksum to file name, if desired
 4. Check mediainfo metadata against image / audio file standards
    (and, in the future, check to see whether it matches LSU's preferred file specs),
    to determine if file has unexpected or incorrect properties while still being 
@@ -256,14 +255,17 @@ def checkpoint_save(checkpoint, checkpoint_inventory_name, inventory_acc):
     inventory_acc = ''
     print('\n%s\nCHECKPOINT REACHED:\nInventory saved after %s files as\n%s\n%s' % (('{:^}'.format('='*80)), checkpoint, checkpoint_inventory_name, ('{:^}'.format('='*80))))
 
-
+# run mediainfo on designated files
 def mediainfo(name, name_with_path, file_error_count, file_error):
     info_dict = {}
     mediainfo_dict = {}
     desired_fields = ['FileExtension', 'InternetMediaType', 'Format/Extensions', 'Compression_Mode', 'SamplingRate']
     # look at mediainfo technical metadata of image files
     mediainfo_output_full = (subprocess.check_output(('MediaInfo -f --Language=raw "' + name_with_path +'"'), shell=True))
+    # format output
     mediainfo_full_format = (str(mediainfo_output_full).replace('  ', '').replace('\\r\\n', '\n').replace("['", "").replace("']", "").split('\n'))
+    # format each line into a field and value
+    #   (unfortunately yes, this is the most efficent way to do this)
     for output_line in mediainfo_full_format:
         try:
             field, value = (output_line.split(': ')).strip()
@@ -271,6 +273,7 @@ def mediainfo(name, name_with_path, file_error_count, file_error):
             field = (output_line.split(': ')[0]).strip()
             value = (output_line.split(': ')[-1]).strip()
         info_dict[field] = value
+    # add previously specified desired fields and associated values to dict
     for desired in desired_fields:
         try:
             mediainfo_dict[desired] = (info_dict[desired])
@@ -278,14 +281,20 @@ def mediainfo(name, name_with_path, file_error_count, file_error):
             mediainfo_dict[desired] = ''
             pass 
 
+    # validate mediainfo data based on expected values
+    # validate file extension
     if (mediainfo_dict['FileExtension']).lower() not in mediainfo_dict['Format/Extensions']:
         file_error_count += 1
         file_error.append('File extension not expected value.')
         print('---WARNING, IMAGE FILE EXTENSION NOT EXPECTED:\n   %s' % (name_with_path))
-    '''if mediainfo_dict['Compression_Mode'] is not ('lossless' or 'Lossless' or ''):
+    '''
+    # validate lossless compression [[not currently in use]]
+    if mediainfo_dict['Compression_Mode'] is not ('lossless' or 'Lossless' or ''):
         file_error_count += 1
         file_error.append('Compression is not lossless.')
-        print('---WARNING, FILE IS NOT LOSSLESS:\n   %s' % (name_with_path))'''
+        print('---WARNING, FILE IS NOT LOSSLESS:\n   %s' % (name_with_path))
+    '''
+    # validate audio sampling rate
     if mediainfo_dict['SamplingRate'] is not '':
         if (int(mediainfo_dict['SamplingRate']) <= int('44100')):
             file_error_count += 1
@@ -294,22 +303,24 @@ def mediainfo(name, name_with_path, file_error_count, file_error):
     
     return file_error_count, file_error
 
+# run checksums
 def checksums(name, name_with_path, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, new_file, checksum_consistent, file_error, file_error_count, file_ext, set_first_dir, dict_first_dir, set_first_dir_names, set_matches, previous_checksums):
-    file_found_error = 'no problems'
+    file_found_error = ''
     checksum = ''
     try:
         run_checksum = subprocess.check_output(('certUtil -hashfile "' + name_with_path + '" ' + checksum_type), shell=True)
+    # if error, save and wait for human input (rudimentary "pause", basically)
     except:
         checkpoint_save(checkpoint, checkpoint_inventory_name, inventory_acc)
         file_found_error = input("You have lost network connectivity. Press enter to continue processing")
         pass
-    # split the returned string by line
+    # split the returned checksum string by line
     checksum_split = str(run_checksum).split('\\r\\n')
-    # take only the second line, which is the checksum
+    # take only the second line (which is the checksum)
     checksum = checksum_split[1]
-    new_file = 'Yes'
+    new_file = ' '
     if ((inventory_acc.count('"%s"' % (checksum)) > 0) and checksum is not '') or checksum in previous_checksums:
-        # if they don't match, there's an error
+        # if checksum appears more than once
         checksum_consistent += 'Duplicate checksum.'
         # print error in shell
         print('---WARNING, CHECKSUM APPEARS MORE THAN ONCE:\n   %s' % (name_with_path))
