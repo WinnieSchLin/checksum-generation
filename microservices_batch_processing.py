@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import glob, os, subprocess, datetime, time, sys, csv
+import glob, os, subprocess, datetime, time, sys, csv, ast
 
 
 # these are the directories I've been running it on locally, here for easy ref
@@ -246,13 +246,21 @@ def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, fi
 
 # saves information to outfile
 def checkpoint_save(checkpoint, checkpoint_inventory_name, inventory_acc):
-    # creates new append+ file for temp inventory
+    # creates/appends+ file for temp inventory
     with open(checkpoint_inventory_name, 'a+', encoding='utf-8') as temp_outfile:
         # fills in accumulator
         temp_outfile.writelines(inventory_acc)
         # [[maybe put not selected files here too, copy to sep variable, reset to set(). this way i can still add everything together to compare difference in files from previous inventory in case of failure]]
     # reset inventory_acc
     inventory_acc = ''
+    # creates/appends+ file for all previous checksums,
+    #   allowing to compare against checksums in all dirs
+    with open("\\\\?\\C:\\Users\\wschlin\\Desktop\\previous-checksums.txt", 'a+', encoding='utf-8') as previous_checksums_file:
+        previous_checksums_file.writelines(str(new_checksums))
+    previous_checksums.update(new_checksums)
+    new_checksums = {}
+
+    
     print('\n%s\nCHECKPOINT REACHED:\nInventory saved after %s files as\n%s\n%s' % (('{:^}'.format('='*80)), checkpoint, checkpoint_inventory_name, ('{:^}'.format('='*80))))
 
 # run mediainfo on designated files
@@ -318,21 +326,23 @@ def checksums(name, name_with_path, checksum_type, inventory_acc, first_inventor
     checksum_split = str(run_checksum).split('\\r\\n')
     # take only the second line (which is the checksum)
     checksum = checksum_split[1]
+
     new_file = ' '
-    if ((inventory_acc.count('"%s"' % (checksum)) > 0) and checksum is not '') or checksum in previous_checksums:
+    if ((inventory_acc.count('"%s"' % (checksum)) > 0) and checksum is not '') or checksum in previous_checksums or checksum in new_checksums:
         # if checksum appears more than once
         checksum_consistent += 'Duplicate checksum.'
         # print error in shell
         print('---WARNING, CHECKSUM APPEARS MORE THAN ONCE:\n   %s' % (name_with_path))
+    new_checksums[checksum] = name_with_path
+    # if the file has been processed previously
     if name_with_path in set_first_dir_names:
-        # it's not a new file
         new_file = ' '
         # if the checksums match
         if dict_first_dir[name_with_path] in checksum:
             # they are consistent
             checksum_consistent += ' '
         else:
-            # if they don't match, there's an error
+            # if the checksums don't match, there's an error
             checksum_consistent += 'Inconsistent checksum.'
             # print error in shell
             print('---WARNING, CHECKSUM DOES NOT MATCH:\n   %s' % (name_with_path))
@@ -341,6 +351,7 @@ def checksums(name, name_with_path, checksum_type, inventory_acc, first_inventor
         checksum_consistent += ' '
     return new_file, checksum, checksum_consistent, file_error, file_error_count, inventory_acc, set_matches
 
+# if the file is in a previous inventory but no longer in dir
 def file_in_inv_not_dir(inventory_acc, leftover_files):
     inventory_acc_total = ''
     for leftover in leftover_files:
@@ -351,39 +362,41 @@ def file_in_inv_not_dir(inventory_acc, leftover_files):
     return inventory_acc_total
 
 
-
+# accumulate all inventory information
 def accumulation(inventory_acc, time_stamp, name_with_path, root, name, processing_error, checksum, checksum_type, new_file, checksum_consistent, file_error, file_error_count, checkpoint):
     if file_error != []:
         error_grouping = ("%s Error(s): %s" % (file_error_count, (' '.join(file_error))))
     else:
         error_grouping = ''
-    # an accumulator that adds all inventory information for the .csv    
+    # character ` is used for csv separation as
+    #    an arbitrary char to account for , and . appearing in file names
     inventory_acc += ('"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"`"%s"\n' % (time_stamp, name_with_path, root, name, processing_error, checksum, checksum_type, new_file, checksum_consistent, error_grouping, checkpoint))
     return inventory_acc
 
+'''
+# this was just used for testing. currently saving but will be gone for longterm use
 def write_file(inventory_dir, modified_path, checkpoint_inventory_name, start_time_stamp):
-    
-    # the file name for the generated inventory.
+    # the file name for the generated inventory
     #   this will start with two underscores for easy sorting 
     #   within the directory and also contain the directory's name 
     #   in its own file name in case the inventory becomes disassociated.
     inventory_name = (('%s\\__Inventory_%s___%s.csv')% (inventory_dir, modified_path, str(start_time_stamp)))
     print('inventory name:\n%s\n\n' % inventory_name)
     print('mod path:\n%s\n\n' % modified_path)
-    '''
+
     # creates new file for inventory
     with open(inventory_name, 'w+', encoding='utf-8') as outfile:
         # fills in accumulator
         outfile.writelines(inventory_acc)
     # all done!
     outfile.close()
-    '''
+
     print('checkpoint inventory name:\n%s\n\n' % checkpoint_inventory_name)
     print('inventory name:\n%s\n\n' % inventory_name)
     os.rename(checkpoint_inventory_name, inventory_name)
-    # print that this inventory has been completed
-    #print('%s\nCOMPLETED:\nInventory saved as\n%s\n%s' % (('{:^}'.format('='*80)), inventory_name, ('{:^}'.format('='*80))))
+'''
 
+# csv accumulator for files that have not been selected for processing
 def not_selected_inventory(not_selected_acc):
     not_selected_inventory_acc = ''
     for name_with_path in not_selected_acc:
@@ -394,21 +407,24 @@ def not_selected_inventory(not_selected_acc):
 
 
 def main():
+# hardcoded inputs for now, otherwise it's just annoying to do every time
 #    file_dir, inventory_dir, checksum_type, include_true_exclude_false, file_types, file_type_string = take_inputs()
     start_time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
-    # hardcoding inputs for now, otherwise it's just annoying to do every time
     #file_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Contained_Test'
     #file_dir = '\\\\?\\R:\\Projects\\Glacier-ReadyForUpload\\FPoC2013'
     file_dir = '\\\\?\\R:\\Newspapers'
     inventory_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories'
+
+
     checksum_type = 'MD5'
     include_true_exclude_false = True
     #file_type_string = ''
     file_type_string = 'jp2 jpg tif png mp3 gif jpe wav mp4 mov hdr svg vob m4v mpg'
     file_types = file_type_string.split()
     
+    new_checksums = {}
     with open("\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories\\previous_checksums.txt", 'r+', encoding='utf-8') as previous_checksums_file:
-        previous_checksums = previous_checksums_file.read()
+        previous_checksums = ast.literal_eval(previous_checksums_file.read())
 
     modified_path, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches = check_for_inventories(file_dir, inventory_dir)
     checkpoint_inventory_name = ('%s\\__Inventory_%s___TEMPINVENTORY.csv' % (inventory_dir, modified_path))
