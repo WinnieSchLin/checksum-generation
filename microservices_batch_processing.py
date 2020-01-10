@@ -18,7 +18,7 @@ Winnie Schwaid-Lindner - checksum and inventory script.
 3. Look into past inventories and see whether the checksum matches, 
    identify duplicate checksums, or whether the file is new to the directory
     * Append checksum to file name, if desired
-4. Check mediainfo metadata against image and audio file standards
+4. Check mediainfo metadata against image / audio file standards
    (and, in the future, check to see whether it matches LSU's preferred file specs),
    to determine if file has unexpected or incorrect properties while still being 
    valid, or determine if the file is corrupted
@@ -39,8 +39,9 @@ Winnie Schwaid-Lindner - checksum and inventory script.
       mediainfo metadata matching with expected metadata
 '''
 def take_inputs():
+    # select dir of files to process
     file_dir_input = ''
-    # while there is no path selected
+    # while there is no file dir path selected
     while '\\' not in file_dir_input:
         # the directory you want to work with
         file_dir_input = input('CONTENT FILE DIRECTORY:\nPaste the *FULL* path to the folder directory \nthat you would like to process:\n> ')
@@ -48,14 +49,16 @@ def take_inputs():
     #   (combat character limit for long paths)
     file_dir = '\\\\?\\%s' % file_dir_input
 
+    # select dir for outfile
     inventory_dir_input = ''
-    # while there is no path selected
+    # while there is no inventory outfile path selected
     while '\\' not in inventory_dir_input:
         # the directory you want to work with
         inventory_dir = input('\nINVENTORY DIRECTORY:\nPaste the *FULL* path to the folder directory \nthat you would like to save the inventory in:\n> ')
     # add '\\?\' to make universal path (combat character limit for long paths)
     inventory_dir = '\\\\?\\%s' % file_dir_input
 
+    # select checksum algorithm
     # existing checksum options that you can pick from
     checksum_options = ['SHA1', 'MD5', 'SHA256']
     checksum_type = (input('\nCHECKSUM SELECTION:\nSelect your checksum type!\nOptions are [MD5], [SHA1], or [SHA256].\nNOTE: If you do not select a valid option, default is set to [MD5].\n> '))\
@@ -65,17 +68,19 @@ def take_inputs():
         print('Not a valid choice. Defaulting to MD5 checksums.')
         checksum_type = 'MD5'
 
+    # choose whether to include or exclude files based on ext
     file_type_include_exclude = ''
     while file_type_include_exclude == '':
         # file type on exclusionary or inclusionary basis
         include_true_exclude_false = True
-        file_type_include_exclude = input('\nFILE TYPE INCLUDE / EXCLUDE:\nWould you like to [I]NCLUDE certain file types\nor [E]XCLUDE certain file types?\nNOTE: If you do not select to include or exclude,\ndefault is set to INCLUDE all files.\n> ').upper().replace('[', '').replace(']', '')
+        file_type_include_exclude = input('\nFILE TYPE INCLUDE / EXCLUDE:\nWould you like to [I]NCLUDE certain file types\nor [E]XCLUDE certain file types?\nNOTE: If you do not select to include or exclude,\ndefault is set to INCLUDE all files.\n> ')\
+            .upper().replace('[', '').replace(']', '')
         if file_type_include_exclude == "E":
             include_true_exclude_false = False
         elif file_type_include_exclude not in ("I", "E"):
             print('Not a valid choice. Defaulting to INCLUDE.')
 
-        # file types that you'd like to highlight
+        # file types that you'd like to process
         file_type_string = ' '
         while file_type_string == ' ':
             file_type_string = input('\nFILE TYPE SELECTION:\nList file types that you would like to process separated by a space\n(ex "pdf jpg xml docx")\nNOTE: If you do not input a file type, every file in the folder\nwill be processed.\n> ')
@@ -84,10 +89,10 @@ def take_inputs():
     # separate file types from one string into a list
     file_types = file_type_string.split()
     
-    return file_dir, inventory_dir, checksum_type, include_true_exclude_false, \
+    return file_dir, inventory_dir, checksum_type, include_true_exclude_false,\
         file_types, file_type_string
 
-# see if there are existing inventories of the same directory
+# determine whether there are existing inventories of the same directory
 def check_for_inventories(file_dir, inventory_dir):
     latest_inventory = ''
     read_inventory = []
@@ -96,10 +101,10 @@ def check_for_inventories(file_dir, inventory_dir):
     set_first_dir_names = set()
     set_matches = set()
     dict_first_dir = {}
-    # making path for file name
+    # modify path for file name to account for invalid characters
     modified_path = (file_dir.replace('\\\\?\\', "").replace('\\', "'").replace(":", "'"))
-    # see if previous inventory exists by accessing it, if it doesn't,
-    #   continue on
+    # see if previous inventory exists by accessing it.
+    #   if it doesn't, don't attempt to compare inventories
     try:
         latest_inventory = str(max(glob.iglob(inventory_dir + '\\__Inventory_' + modified_path + '__*.csv'),key=os.path.getmtime))
     except (OSError, ValueError): 
@@ -114,7 +119,7 @@ def check_for_inventories(file_dir, inventory_dir):
     else:
         # this is the first inventory done for this dir
         first_inventory_of_dir = True
-    # if not the first inventory
+    # if not the first inventory of this dir
     if first_inventory_of_dir == False:
         # read row by row
         for row in read_inventory:
@@ -132,7 +137,8 @@ def check_for_inventories(file_dir, inventory_dir):
     return modified_path, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches
 
 
-#
+# determine which files to process based on previous inputs
+#   create outfile with these files
 def file_name_inventory(file_dir, include_true_exclude_false, file_type_string, file_types):
     time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
     file_name_acc = {}
@@ -145,16 +151,15 @@ def file_name_inventory(file_dir, include_true_exclude_false, file_type_string, 
     for root, dirs, files in os.walk(file_dir):
         for folder in dirs:
             dir_name = folder
-            #print('\n%s\nCURRENTLY ON:\n%s\\%s' % (line_break, root, dir_name))
-            
         for name in files:
             name_with_path = (os.path.join(root, name))
             try:
-                # select file types to process
+                # select & acc file types to process based on previous input
                 if name.lower().endswith(tuple(file_types)) == include_true_exclude_false or file_type_string == '' and '._' not in name:
                     file_count_acc +=1
                     file_name_acc[file_count_acc] = (name_with_path)
                     file_name_acc_as_string += ('%s: %s\n' % (file_count_acc, name_with_path))
+                # if not selected, acc to separate variable
                 else:
                     not_selected_acc.add((name_with_path))
                     not_selected_as_string += ('%s\n' % name_with_path)
@@ -165,6 +170,8 @@ def file_name_inventory(file_dir, include_true_exclude_false, file_type_string, 
                 pass
     total_to_do = len(file_name_acc)
     total_not_selected = len(not_selected_acc)
+    # create file with file names.
+    #   this is used as a record, backup, and checkpoint source
     with open('S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories\\File_Name_Acc.txt', 'w', encoding='utf-8') as file_name_acc_file:
         # fills in accumulator
         file_name_acc_file.writelines('%s\n\n%s\n\n%s' % (file_name_acc_as_string, ('='*80), not_selected_as_string))
@@ -174,15 +181,18 @@ def file_name_inventory(file_dir, include_true_exclude_false, file_type_string, 
     print('%s\nFINISHED DETERMINING FILES AT: %s\n%s' % (('{:^}'.format('='*80)), time_stamp, ('{:^}'.format('='*80))))
     return file_name_acc, not_selected_acc, total_to_do, total_not_selected
 
+# this is the meat of the recursive file processing
 def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, file_types, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches, file_name_acc, not_selected_acc, total_to_do, total_not_selected, inventory_dir, modified_path, checkpoint_inventory_name, previous_checksums):
-    # for each folder and file within that directory
     checkpoint = 0
     old_root = ''
+    # while there are still files left unprocessed
     while checkpoint < total_to_do:
+        # when checkpoint accumulator reaches a multiple of 10000, update outfile
         if (checkpoint % 10000 == 0) or (checkpoint == 0):
             checkpoint_save(checkpoint, checkpoint_inventory_name, inventory_acc)
             inventory_acc = ''
         checkpoint += 1
+        # os.walk order is consistent: checkpoint == file_name_acc
         name_with_path = file_name_acc[checkpoint]
         set_matches.add((name_with_path))
         time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
@@ -195,10 +205,11 @@ def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, fi
             file_error = []
             file_error_count = 0
             
-            # split the portions of the file name to separate the extension
+            # processing_progress to indicate point of failure if script fails
             processing_progress = 'IDENTIFYING FILE NAME AND DIRECTORY'
-            #print(processing_progress)
+            # split the portions of the file name to separate the extension
             root, name = os.path.split(name_with_path)
+            # indicate dir being processed
             if str(root) != str(old_root):
                 print('\n%s\nCURRENTLY PROCESSING:\n%s' % (line_break, root))
             old_root = str(root)
@@ -206,23 +217,27 @@ def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, fi
             file_ext = os.path.splitext(name)[-1]
             checksum = ' '
             processing_progress = 'CALCULATING CHECKSUM'
-            #print(processing_progress)
             new_file, checksum, checksum_consistent, file_error, file_error_count, inventory_acc, set_matches = checksums(name, name_with_path, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, new_file, checksum_consistent, file_error, file_error_count, file_ext, set_first_dir, dict_first_dir, set_first_dir_names, set_matches, previous_checksums)
+
             # find errors in mediainfo for images and audio
-            #mediainfo_extensions = ('jpg', 'jp2', 'tif', 'tiff', 'wav', 'mov')
-            mediainfo_extensions = ('no mediainfo on any file for Newspapers directory')
+            # included extensions currently set to media files
+            mediainfo_extensions = ('jpg', 'jp2', 'tif', 'tiff', 'wav', 'mov')
             if name.lower().endswith(mediainfo_extensions):
                 processing_progress = 'RUNNING MEDIAINFO'
-                #print(processing_progress)
                 file_error_count, file_error = mediainfo(name, name_with_path, file_error_count, file_error)
             processing_progress = 'ADDING TO INVENTORY'
-            #print(processing_progress)
+        
+        # indicate (human readable) point of error
         except:
             processing_error = ('Error in processing while %s' % (processing_progress.lower()))
             print('---WARNING, ERROR IN PROCESSING WHILE %s:\n   %s' % (processing_progress, name_with_path))
+            # if error, save current work
             checkpoint_save(checkpoint, checkpoint_inventory_name, inventory_acc)
+        # accumulate file information for csv
         inventory_acc = accumulation(inventory_acc, time_stamp, name_with_path, root, name, processing_error, checksum, checksum_type, new_file, checksum_consistent, file_error, file_error_count, checkpoint)
+        # delete file out of dict
         del file_name_acc[checkpoint]
+    # after all files have been processed, save.
     checkpoint_save(checkpoint, checkpoint_inventory_name, inventory_acc)
 
     # determine which files were in previous inventory but not dir
@@ -230,17 +245,15 @@ def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, fi
 
     return inventory_acc, leftover_files, checkpoint
 
+# saves information to outfile
 def checkpoint_save(checkpoint, checkpoint_inventory_name, inventory_acc):
     # creates new append+ file for temp inventory
     with open(checkpoint_inventory_name, 'a+', encoding='utf-8') as temp_outfile:
         # fills in accumulator
         temp_outfile.writelines(inventory_acc)
-    # all done!
-    temp_outfile.close()
-    # print that this inventory has been completed
-
+        # [[maybe put not selected files here too, copy to sep variable, reset to set(). this way i can still add everything together to compare difference in files from previous inventory in case of failure]]
+    # reset inventory_acc
     inventory_acc = ''
-
     print('\n%s\nCHECKPOINT REACHED:\nInventory saved after %s files as\n%s\n%s' % (('{:^}'.format('='*80)), checkpoint, checkpoint_inventory_name, ('{:^}'.format('='*80))))
 
 
