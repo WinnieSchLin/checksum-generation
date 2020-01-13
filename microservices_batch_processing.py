@@ -251,8 +251,10 @@ def checkpoint_save(checkpoint, checkpoint_inventory_name, inventory_acc):
         # fills in accumulator
         temp_outfile.writelines(inventory_acc)
         # [[maybe put not selected files here too, copy to sep variable, reset to set(). this way i can still add everything together to compare difference in files from previous inventory in case of failure]]
-    # reset inventory_acc
+        temp_outfile.writelines(not_selected_inventory_acc)
+    # reset inventory_acc and not_selected_inventory_acc
     inventory_acc = ''
+    not_selected_inventory_acc = ''
     # creates/appends+ file for all previous checksums,
     #   allowing to compare against checksums in all dirs
     with open("\\\\?\\C:\\Users\\wschlin\\Desktop\\previous-checksums.txt", 'a+', encoding='utf-8') as previous_checksums_file:
@@ -426,17 +428,27 @@ def main():
     with open("\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories\\previous_checksums.txt", 'r+', encoding='utf-8') as previous_checksums_file:
         previous_checksums = ast.literal_eval(previous_checksums_file.read())
 
+    # check for previous inventories of dir, return info
     modified_path, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches = check_for_inventories(file_dir, inventory_dir)
+
+    # create inventory names
     checkpoint_inventory_name = ('%s\\__Inventory_%s___TEMPINVENTORY.csv' % (inventory_dir, modified_path))
     inventory_name = (('%s\\__Inventory_%s___%s.csv')% (inventory_dir, modified_path, str(start_time_stamp)))
+
+    # create inventory of all file names that will be processed
     file_name_acc, not_selected_acc, total_to_do, total_not_selected = file_name_inventory(file_dir, include_true_exclude_false, file_type_string, file_types)
+
+    # process files, return inventory
     inventory_acc_recursive, leftover_files, checkpoint = recursive_by_file(file_dir, include_true_exclude_false, file_type_string, file_types, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches, file_name_acc, not_selected_acc, total_to_do, total_not_selected, inventory_dir, modified_path, checkpoint_inventory_name, previous_checksums)
+    
+    # manage files not included for processing
     inventory_acc_not_included = file_in_inv_not_dir(inventory_acc_recursive, leftover_files)
     not_selected_inventory_acc = not_selected_inventory(not_selected_acc)
-    inventory_acc_total = inventory_acc_not_included + not_selected_inventory_acc
-    not_processed_acc_total = inventory_acc_total.count('\n') + checkpoint
+    inventory_acc_not_processed = inventory_acc_not_included + not_selected_inventory_acc
+    not_processed_acc_total = inventory_acc_not_processed.count('\n') + checkpoint
     checkpoint_save(not_processed_acc_total, checkpoint_inventory_name, inventory_acc_total)
     
+    # finish inventory
     os.rename(checkpoint_inventory_name, inventory_name)
     time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
     print('\n%s\nCOMPLETED:\nInventory saved as\n%s\nCOMPLETED AT: %s\n%s' % (('{:^}'.format('='*80)), inventory_name, time_stamp, ('{:^}'.format('='*80))))
