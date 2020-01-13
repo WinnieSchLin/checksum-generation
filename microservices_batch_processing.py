@@ -335,7 +335,8 @@ def checksums(name, name_with_path, checksum_type, inventory_acc, first_inventor
         checksum_consistent += 'Duplicate checksum.'
         # print error in shell
         print('---WARNING, CHECKSUM APPEARS MORE THAN ONCE:\n   %s' % (name_with_path))
-    new_checksums[checksum] = name_with_path
+    else:
+        new_checksums[checksum] = name_with_path
     # if the file has been processed previously
     if name_with_path in set_first_dir_names:
         new_file = ' '
@@ -410,20 +411,19 @@ def not_selected_inventory(not_selected_acc):
 
 def main():
 # hardcoded inputs for now, otherwise it's just annoying to do every time
-#    file_dir, inventory_dir, checksum_type, include_true_exclude_false, file_types, file_type_string = take_inputs()
+    # file_dir, inventory_dir, checksum_type, include_true_exclude_false, file_types, file_type_string = take_inputs()
     start_time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
     #file_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Contained_Test'
     #file_dir = '\\\\?\\R:\\Projects\\Glacier-ReadyForUpload\\FPoC2013'
     file_dir = '\\\\?\\R:\\Newspapers'
     inventory_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories'
-
-
     checksum_type = 'MD5'
     include_true_exclude_false = True
     #file_type_string = ''
     file_type_string = 'jp2 jpg tif png mp3 gif jpe wav mp4 mov hdr svg vob m4v mpg'
     file_types = file_type_string.split()
     
+    # get previous checksums from all previous inventories
     new_checksums = {}
     with open("\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories\\previous_checksums.txt", 'r+', encoding='utf-8') as previous_checksums_file:
         previous_checksums = ast.literal_eval(previous_checksums_file.read())
