@@ -13,26 +13,30 @@ Winnie Schwaid-Lindner - checksum and inventory script.
 
 
 1. Ask the root directory, inventory directory, hash algorithm, 
-   and which file extensions to process on an inclusionary or exclusionary basis
-2. Calculate the checksum using certUtil
-3. Look into past inventories and see whether the checksum matches, 
-   identify duplicate checksums, or whether the file is new to the directory
-4. Check mediainfo metadata against image / audio file standards
-   (and, in the future, check to see whether it matches LSU's preferred file specs),
-   to determine if file has unexpected or incorrect properties while still being 
-   valid, or determine if the file is corrupted
-5. Produce a csv inventory of all the file names for each directory
+   and which file extensions to process (inclusionary or exclusionary basis)
+2. Create txt of all filenames that script will process. This is in case of
+   error. A variable containing the same info is used for subprocess commands
+3. Calculate the checksum using certUtil (subprocess)
+4. Look into past inventories and see whether the checksum matches, 
+   identify duplicate checksums, or whether the file is new to the directory.
+   All checksums are accumulated to make sure there are no duplicates across
+   several directories.
+5. Check mediainfo metadata against image / audio file standards
+   to determine if file has unexpected or incorrect properties while still
+   being valid, or determine if the file is corrupted
+6. Create a checkpoint file, where all output is saved every 10,000 files
+7. Produce a csv inventory of all the file names for each directory
    with the fields:
     * Time stamp of file processed
     * Full file path
     * Directory that the file is in
-    * File name (and previous file name, if checksum is appended to file name)
+    * File name
     * Checksum
-    * Checksum algorithm
+    * Checksum algorithm used (MD5 or SHA256, etc)
     * Whether the file is being processed by the script for the first time,
       which would indicate a new file (Boolean value)
     * Whether the most recently generated checksum matches the most recent
-      past checksum if the file is not new
+      past checksum if the file is not new, or indicates new file
       (compares checksum to past inventory, this is also Boolean)
     * Tell whether the file is valid according to
       mediainfo metadata matching with expected metadata
