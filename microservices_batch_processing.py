@@ -419,7 +419,7 @@ def main():
     start_time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
     #file_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Contained_Test'
     #file_dir = '\\\\?\\R:\\Projects\\Glacier-ReadyForUpload\\FPoC2013'
-    file_dir = '\\\\?\\R:\\Newspapers'
+    file_dir = '\\\\?\\R:\\DigitalServices'
     inventory_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories'
     checksum_type = 'MD5'
     include_true_exclude_false = True
@@ -436,7 +436,7 @@ def main():
     modified_path, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches = check_for_inventories(file_dir, inventory_dir)
 
     # create inventory names
-    checkpoint_inventory_name = ('%s\\__Inventory_%s___TEMPINVENTORY.csv' % (inventory_dir, modified_path))
+    checkpoint_inventory_name = ('%s\\__Inventory_%s___TEMPINVENTORY1.csv' % (inventory_dir, modified_path))
     inventory_name = (('%s\\__Inventory_%s___%s.csv')% (inventory_dir, modified_path, str(start_time_stamp)))
 
     # create inventory of all file names that will be processed
