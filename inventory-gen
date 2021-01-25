@@ -165,7 +165,7 @@ def file_name_inventory(file_dir, include_true_exclude_false, file_type_string, 
                 pass
     total_to_do = len(file_name_acc)
     total_not_selected = len(not_selected_acc)
-    with open('S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories\\File_Name_Acc.txt', 'w', encoding='utf-8') as file_name_acc_file:
+    with open('S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories\\File_Name_Acc_2021.txt', 'w', encoding='utf-8') as file_name_acc_file:
         # fills in accumulator
         file_name_acc_file.writelines('%s\n\n%s\n\n%s' % (file_name_acc_as_string, ('='*80), not_selected_as_string))
         
@@ -210,7 +210,7 @@ def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, fi
             new_file, checksum, checksum_consistent, file_error, file_error_count, inventory_acc, set_matches = checksums(name, name_with_path, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, new_file, checksum_consistent, file_error, file_error_count, file_ext, set_first_dir, dict_first_dir, set_first_dir_names, set_matches, previous_checksums)
             # find errors in mediainfo for images and audio
             #mediainfo_extensions = ('jpg', 'jp2', 'tif', 'tiff', 'wav', 'mov')
-            mediainfo_extensions = ('no mediainfo on any file for Newspapers directory')
+            mediainfo_extensions = ('no mediainfo for now and also not on any file for Newspapers directory')
             if name.lower().endswith(mediainfo_extensions):
                 processing_progress = 'RUNNING MEDIAINFO'
                 #print(processing_progress)
@@ -375,7 +375,7 @@ def main():
     # hardcoding inputs for now, otherwise it's just annoying to do every time
     #file_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Contained_Test'
     #file_dir = '\\\\?\\R:\\Projects\\Glacier-ReadyForUpload\\FPoC2013'
-    file_dir = '\\\\?\\R:\\Newspapers'
+    file_dir = '\\\\?\\R:\\DigitalServices'
     inventory_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories'
     checksum_type = 'MD5'
     include_true_exclude_false = True
@@ -387,7 +387,7 @@ def main():
         previous_checksums = previous_checksums_file.read()
 
     modified_path, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches = check_for_inventories(file_dir, inventory_dir)
-    checkpoint_inventory_name = ('%s\\__Inventory_%s___TEMPINVENTORY.csv' % (inventory_dir, modified_path))
+    checkpoint_inventory_name = ('%s\\__Inventory_%s___TEMPINVENTORY_2021.csv' % (inventory_dir, modified_path))
     inventory_name = (('%s\\__Inventory_%s___%s.csv')% (inventory_dir, modified_path, str(start_time_stamp)))
     file_name_acc, not_selected_acc, total_to_do, total_not_selected = file_name_inventory(file_dir, include_true_exclude_false, file_type_string, file_types)
     inventory_acc_recursive, leftover_files, checkpoint = recursive_by_file(file_dir, include_true_exclude_false, file_type_string, file_types, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches, file_name_acc, not_selected_acc, total_to_do, total_not_selected, inventory_dir, modified_path, checkpoint_inventory_name, previous_checksums)
