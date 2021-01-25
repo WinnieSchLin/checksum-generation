@@ -134,11 +134,14 @@ def check_for_inventories(file_dir, inventory_dir):
 
 #
 def file_name_inventory(file_dir, include_true_exclude_false, file_type_string, file_types):
+    time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
     file_name_acc = {}
     file_count_acc = 0
+    file_name_acc_as_string = ''
     not_selected_acc = set()
+    not_selected_as_string = ''
     # for each folder and file within that directory
-    print('%s\nDETERMINING FILES TO PROCESS IN\n%s\n%s' % (('{:^}'.format('='*80)), file_dir, ('{:^}'.format('='*80))))
+    print('%s\nDETERMINING FILES TO PROCESS IN\n%s\nSTARTED AT: %s\n%s' % (('{:^}'.format('='*80)), file_dir, time_stamp, ('{:^}'.format('='*80))))
     for root, dirs, files in os.walk(file_dir):
         for folder in dirs:
             dir_name = folder
@@ -148,29 +151,33 @@ def file_name_inventory(file_dir, include_true_exclude_false, file_type_string, 
             name_with_path = (os.path.join(root, name))
             try:
                 # select file types to process
-                if name.lower().endswith(tuple(file_types)) == include_true_exclude_false or file_type_string == '':
+                if name.lower().endswith(tuple(file_types)) == include_true_exclude_false or file_type_string == '' and '._' not in name:
                     file_count_acc +=1
                     file_name_acc[file_count_acc] = (name_with_path)
+                    file_name_acc_as_string += ('%s: %s\n' % (file_count_acc, name_with_path))
                 else:
                     not_selected_acc.add((name_with_path))
+                    not_selected_as_string += ('%s\n' % name_with_path)
             except:
                 print('---WARNING, ERROR DETERMINING FILES TO PROCESS:\n   %s' % (name_with_path))
                 not_selected_acc.add((name_with_path))
+                not_selected_as_string += ('%s\n' % name_with_path)
                 pass
     total_to_do = len(file_name_acc)
     total_not_selected = len(not_selected_acc)
     with open('S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories\\File_Name_Acc.txt', 'w', encoding='utf-8') as file_name_acc_file:
         # fills in accumulator
-        file_name_acc_file.writelines('%s\n\n%s' % (str(file_name_acc), str(not_selected_acc)))
+        file_name_acc_file.writelines('%s\n\n%s\n\n%s' % (file_name_acc_as_string, ('='*80), not_selected_as_string))
         
     # all done!
     file_name_acc_file.close()
+    print('%s\nFINISHED DETERMINING FILES AT: %s\n%s' % (('{:^}'.format('='*80)), time_stamp, ('{:^}'.format('='*80))))
     return file_name_acc, not_selected_acc, total_to_do, total_not_selected
 
-def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, file_types, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches, file_name_acc, not_selected_acc, total_to_do, total_not_selected, inventory_dir, modified_path, checkpoint_inventory_name):
+def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, file_types, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches, file_name_acc, not_selected_acc, total_to_do, total_not_selected, inventory_dir, modified_path, checkpoint_inventory_name, previous_checksums):
     # for each folder and file within that directory
     checkpoint = 0
-    
+    old_root = ''
     while checkpoint < total_to_do:
         if (checkpoint % 10000 == 0) or (checkpoint == 0):
             checkpoint_save(checkpoint, checkpoint_inventory_name, inventory_acc)
@@ -187,20 +194,23 @@ def recursive_by_file(file_dir, include_true_exclude_false, file_type_string, fi
             checksum_consistent = ''
             file_error = []
             file_error_count = 0
-            old_root = ''
+            
             # split the portions of the file name to separate the extension
             processing_progress = 'IDENTIFYING FILE NAME AND DIRECTORY'
             #print(processing_progress)
             root, name = os.path.split(name_with_path)
-            if root != old_root:
+            if str(root) != str(old_root):
                 print('\n%s\nCURRENTLY PROCESSING:\n%s' % (line_break, root))
-                old_root = root
+            old_root = str(root)
+
             file_ext = os.path.splitext(name)[-1]
+            checksum = ' '
             processing_progress = 'CALCULATING CHECKSUM'
             #print(processing_progress)
-            new_file, checksum, checksum_consistent, file_error, file_error_count, inventory_acc, set_matches = checksums(name, name_with_path, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, new_file, checksum_consistent, file_error, file_error_count, file_ext, set_first_dir, dict_first_dir, set_first_dir_names, set_matches)
+            new_file, checksum, checksum_consistent, file_error, file_error_count, inventory_acc, set_matches = checksums(name, name_with_path, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, new_file, checksum_consistent, file_error, file_error_count, file_ext, set_first_dir, dict_first_dir, set_first_dir_names, set_matches, previous_checksums)
             # find errors in mediainfo for images and audio
-            mediainfo_extensions = ('jpg', 'jp2', 'tif', 'tiff', 'wav', 'mov')
+            #mediainfo_extensions = ('jpg', 'jp2', 'tif', 'tiff', 'wav', 'mov')
+            mediainfo_extensions = ('no mediainfo on any file for Newspapers directory')
             if name.lower().endswith(mediainfo_extensions):
                 processing_progress = 'RUNNING MEDIAINFO'
                 #print(processing_progress)
@@ -228,8 +238,10 @@ def checkpoint_save(checkpoint, checkpoint_inventory_name, inventory_acc):
     # all done!
     temp_outfile.close()
     # print that this inventory has been completed
+
     inventory_acc = ''
-    print('%s\nCHECKPOINT REACHED:\nInventory saved after %s files as\n%s\n%s' % (('{:^}'.format('='*80)), checkpoint, checkpoint_inventory_name, ('{:^}'.format('='*80))))
+
+    print('\n%s\nCHECKPOINT REACHED:\nInventory saved after %s files as\n%s\n%s' % (('{:^}'.format('='*80)), checkpoint, checkpoint_inventory_name, ('{:^}'.format('='*80))))
 
 
 def mediainfo(name, name_with_path, file_error_count, file_error):
@@ -253,7 +265,7 @@ def mediainfo(name, name_with_path, file_error_count, file_error):
             mediainfo_dict[desired] = ''
             pass 
 
-    if mediainfo_dict['FileExtension'] not in mediainfo_dict['Format/Extensions']:
+    if (mediainfo_dict['FileExtension']).lower() not in mediainfo_dict['Format/Extensions']:
         file_error_count += 1
         file_error.append('File extension not expected value.')
         print('---WARNING, IMAGE FILE EXTENSION NOT EXPECTED:\n   %s' % (name_with_path))
@@ -269,7 +281,7 @@ def mediainfo(name, name_with_path, file_error_count, file_error):
     
     return file_error_count, file_error
 
-def checksums(name, name_with_path, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, new_file, checksum_consistent, file_error, file_error_count, file_ext, set_first_dir, dict_first_dir, set_first_dir_names, set_matches):
+def checksums(name, name_with_path, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, new_file, checksum_consistent, file_error, file_error_count, file_ext, set_first_dir, dict_first_dir, set_first_dir_names, set_matches, previous_checksums):
     file_found_error = 'no problems'
     checksum = ''
     try:
@@ -283,7 +295,7 @@ def checksums(name, name_with_path, checksum_type, inventory_acc, first_inventor
     # take only the second line, which is the checksum
     checksum = checksum_split[1]
     new_file = 'Yes'
-    if (inventory_acc.count('"%s"' % (checksum)) > 0) and checksum is not '':
+    if ((inventory_acc.count('"%s"' % (checksum)) > 0) and checksum is not '') or checksum in previous_checksums:
         # if they don't match, there's an error
         checksum_consistent += 'Duplicate checksum.'
         # print error in shell
@@ -363,26 +375,31 @@ def main():
     # hardcoding inputs for now, otherwise it's just annoying to do every time
     #file_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Contained_Test'
     #file_dir = '\\\\?\\R:\\Projects\\Glacier-ReadyForUpload\\FPoC2013'
-    #file_dir = '\\\\?\\R:\\'
+    file_dir = '\\\\?\\R:\\Newspapers'
     inventory_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories'
     checksum_type = 'MD5'
-    include_true_exclude_false = False
-    file_type_string = ''
-    #file_type_string = 'tif jpg tiff jpeg'
+    include_true_exclude_false = True
+    #file_type_string = ''
+    file_type_string = 'jp2 jpg tif png mp3 gif jpe wav mp4 mov hdr svg vob m4v mpg'
     file_types = file_type_string.split()
     
+    with open("\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories\\previous_checksums.txt", 'r+', encoding='utf-8') as previous_checksums_file:
+        previous_checksums = previous_checksums_file.read()
+
     modified_path, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches = check_for_inventories(file_dir, inventory_dir)
     checkpoint_inventory_name = ('%s\\__Inventory_%s___TEMPINVENTORY.csv' % (inventory_dir, modified_path))
     inventory_name = (('%s\\__Inventory_%s___%s.csv')% (inventory_dir, modified_path, str(start_time_stamp)))
     file_name_acc, not_selected_acc, total_to_do, total_not_selected = file_name_inventory(file_dir, include_true_exclude_false, file_type_string, file_types)
-    inventory_acc_recursive, leftover_files, checkpoint = recursive_by_file(file_dir, include_true_exclude_false, file_type_string, file_types, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches, file_name_acc, not_selected_acc, total_to_do, total_not_selected, inventory_dir, modified_path, checkpoint_inventory_name)
+    inventory_acc_recursive, leftover_files, checkpoint = recursive_by_file(file_dir, include_true_exclude_false, file_type_string, file_types, checksum_type, inventory_acc, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches, file_name_acc, not_selected_acc, total_to_do, total_not_selected, inventory_dir, modified_path, checkpoint_inventory_name, previous_checksums)
     inventory_acc_not_included = file_in_inv_not_dir(inventory_acc_recursive, leftover_files)
     not_selected_inventory_acc = not_selected_inventory(not_selected_acc)
     inventory_acc_total = inventory_acc_not_included + not_selected_inventory_acc
-    checkpoint_save(checkpoint, checkpoint_inventory_name, inventory_acc_total)
+    not_processed_acc_total = inventory_acc_total.count('\n') + checkpoint
+    checkpoint_save(not_processed_acc_total, checkpoint_inventory_name, inventory_acc_total)
     
     os.rename(checkpoint_inventory_name, inventory_name)
-    print('%s\nCOMPLETED:\nInventory saved as\n%s\n%s' % (('{:^}'.format('='*80)), inventory_name, ('{:^}'.format('='*80))))
+    time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
+    print('\n%s\nCOMPLETED:\nInventory saved as\n%s\nCOMPLETED AT: %s\n%s' % (('{:^}'.format('='*80)), inventory_name, time_stamp, ('{:^}'.format('='*80))))
 
 
 if __name__ == '__main__':
