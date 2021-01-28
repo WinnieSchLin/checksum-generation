@@ -300,7 +300,7 @@ def checksums(name, name_with_path, checksum_type, inventory_acc, first_inventor
     #print(checksum_split)
     # take only the second line, which is the checksum
     checksum = checksum_split[1]
-    print('%s %s' % (name_with_path, checksum))
+    #print('%s %s' % (name_with_path, checksum))
     new_file = 'Yes'
     if ((inventory_acc.count('"%s"' % (checksum)) > 0) and checksum is not ''):
         # if they don't match, there's an error
@@ -389,9 +389,9 @@ def main():
 #    file_dir, inventory_dir, checksum_type, include_true_exclude_false, file_types, file_type_string = take_inputs()
     start_time_stamp = time.strftime("%Y-%m-%d_%Hh%Mm%Ss")
     # hardcoding inputs for now, otherwise it's just annoying to do every time
-    file_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Contained_Test'
+    #file_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Contained_Test'
     #file_dir = '\\\\?\\R:\\Projects\\Glacier-ReadyForUpload\\FPoC2013'
-    #file_dir = '\\\\?\\R:\\DigitalServices'
+    file_dir = '\\\\?\\R:\\DigitalServices'
     inventory_dir = '\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories'
     checksum_type = 'MD5'
     include_true_exclude_false = True
@@ -402,7 +402,7 @@ def main():
     with set(line.strip() for line in open("\\\\?\\S:\\Departments\\Digital Services\\Internal\\DigiPres\\Checksum_Inventory_Generation\\Inventories\\previous_checksums_2021.txt", 'r+', encoding='utf-8') as previous_checksums_file:
         previous_checksums = set(line.strip() for line in previous_checksums_file
     '''
-    previous_checksums = ''
+    previous_checksums = 'thesearewords'
 
     modified_path, first_inventory_of_dir, read_inventory, set_first_dir, dict_first_dir, set_first_dir_names, set_matches = check_for_inventories(file_dir, inventory_dir)
     checkpoint_inventory_name = ('%s\\__Inventory_%s___TEMPINVENTORY_2021.csv' % (inventory_dir, modified_path))
